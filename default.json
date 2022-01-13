@@ -1,0 +1,27 @@
+{
+    "bot": {
+        "token": "",
+        "hide_bot_message": true
+    },
+    "instance": {
+        "discord": {
+            "guild_id": 0,
+            "output_channel": 0,
+            "enabled_roles": [0, 0]
+        },
+        "rdm": {
+            "api_endpoint": "http://127.0.0.1:9000",
+            "username": "rdm_root_user",
+            "password": "6d9fdb16ed509488eeef6af2f842a744"
+        }
+    },
+    "locale": {
+        "date_format": "YYYY.MM.DD",
+        "time_format": "HH:mm:ss",
+        "timezone": "UTC"
+    },
+    "sentry": {
+        "dns": "",
+        "traces_sample_rate": 1.0
+    }
+}

@@ -1,0 +1,23 @@
+{
+    "bot": {
+        "token": "bot_token",
+        "hide_bot_message": true
+    },
+    "instance": {
+        "discord": {
+            "guild_id": 1234567890,
+            "output_channel": 2345678901,
+            "enabled_roles": [3456789012, 4567890123]
+        },
+        "rdm": {
+            "api_endpoint": "http://127.0.0.1:9000",
+            "username": "rdm_root_user",
+            "password": "6d9fdb16ed509488eeef6af2f842a744"
+        }
+    },
+    "locale": {
+        "date_format": "YYYY.MM.DD",
+        "time_format": "HH:mm:ss",
+        "timezone": "UTC"
+    }
+}
