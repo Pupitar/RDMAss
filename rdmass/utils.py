@@ -80,7 +80,7 @@ async def handle_bot_list(
     if edit_component:
         await edit_component.edit_origin(content=initial_message, components=[action_row])
     else:
-        await ctx.send(initial_message, components=[action_row], hidden=True)
+        await ctx.send(initial_message, components=[action_row], hidden=config.bot.hide_bot_message)
 
     index = 0
     keep_open = True
