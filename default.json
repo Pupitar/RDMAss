@@ -1,7 +1,10 @@
 {
     "bot": {
         "token": "",
-        "hide_bot_message": true
+        "hide_bot_message": true,
+        "log_level": "INFO",
+        "apscheduler_log_level": "INFO",
+        "vendor_log_level": "ERROR"
     },
     "instance": {
         "discord": {

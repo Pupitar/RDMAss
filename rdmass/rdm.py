@@ -1,8 +1,9 @@
+import httpx
 from typing import Dict, List, Optional, Text
 
-import httpx
+from rdmass.config import config, logging
 
-from rdmass.config import config
+log = logging.getLogger(__name__)
 
 
 async def client_get(url: Text, params: Dict) -> httpx.Response:
@@ -13,6 +14,7 @@ async def client_get(url: Text, params: Dict) -> httpx.Response:
             headers={"user-agent": "rdmass/0.1"},
             params=params,
         )
+        log.info(f"httpx GET {str(response.url).replace(config.instance.rdm.api_endpoint, '')}")
 
         return response
 
@@ -34,6 +36,7 @@ class RDMGetApi:
         params = {"show_devices": True}
 
         output = await get_request(params)
+        log.debug(f"RDMGetApi.get_devices: {output}")
         if output:
             return output["data"]["devices"]
 
@@ -42,6 +45,7 @@ class RDMGetApi:
         params = {"show_instances": True, "skip_instance_status": True}
 
         output = await get_request(params)
+        log.debug(f"RDMGetApi.get_instances: {output}")
         if output:
             return output["data"]["instances"]
 
@@ -50,6 +54,7 @@ class RDMGetApi:
         params = {"show_assignmentgroups": True}
 
         output = await get_request(params)
+        log.debug(f"RDMGetApi.get_assignment_groups: {output}")
         if output:
             return output["data"]["assignmentgroups"]
 
@@ -58,6 +63,7 @@ class RDMGetApi:
         params = {"show_status": True}
 
         output = await get_request(params)
+        log.debug(f"RDMGetApi.get_status: {output}")
         if output:
             return output["data"]["status"]
 
@@ -72,6 +78,7 @@ class RDMSetApi:
         }
 
         output = await set_request(params)
+        log.debug(f"RDMSetApi.assign_device: {output}")
         return output
 
     @classmethod
@@ -83,6 +90,7 @@ class RDMSetApi:
         }
 
         output = await set_request(params)
+        log.debug(f"RDMSetApi.assign_device_group: {output}")
         return output
 
     @classmethod
@@ -94,6 +102,7 @@ class RDMSetApi:
         }
 
         output = await set_request(params)
+        log.debug(f"RDMSetApi.assignment_group: {output}")
         return output
 
     @classmethod
@@ -101,6 +110,7 @@ class RDMSetApi:
         params = {"reload_instances": True}
 
         output = await set_request(params)
+        log.debug(f"RDMSetApi.reload_instances: {output}")
         return output
 
     @classmethod
@@ -108,4 +118,5 @@ class RDMSetApi:
         params = {"clear_all_quests": True}
 
         output = await set_request(params)
+        log.debug(f"RDMSetApi.clear_all_quests: {output}")
         return output

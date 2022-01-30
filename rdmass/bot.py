@@ -142,6 +142,8 @@ async def rdm_clear(ctx: ComponentContext) -> None:
     permissions=permissions,
 )
 async def rdm_assignment_group(ctx: ComponentContext) -> Optional[SlashMessage]:
+    await ctx.defer(hidden=config.bot.hide_bot_message)
+
     assignment_groups = [
         {
             "label": row["name"],
