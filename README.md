@@ -42,7 +42,7 @@ Additonal options are available in `default.json`
         "discord": {
             "guild_id": 1234567890,                        // Add the Discord Guild ID for the server the bot will be run on
             "enabled_roles": [3456789012, 4567890123],     // Discord Role ID's that you authorise to use the commands.
-            "output_channel": 2345678901                   // A discord channel where output of scheduled jobs will be sent.
+            "tech_channel": 2345678901                     // A discord channel where technical messages of scheduled jobs will be sent.
         },
         "rdm": {
             "api_endpoint": "http://127.0.0.1:9000",       // RDM front end Endpoint

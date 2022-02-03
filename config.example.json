@@ -7,7 +7,7 @@
         "discord": {
             "guild_id": 1234567890,
             "enabled_roles": [3456789012, 4567890123],
-            "output_channel": 2345678901
+            "tech_channel": 2345678901
         },
         "rdm": {
             "api_endpoint": "http://127.0.0.1:9000",

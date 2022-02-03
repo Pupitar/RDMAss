@@ -10,7 +10,7 @@
         "discord": {
             "guild_id": 0,
             "enabled_roles": [0, 0],
-            "output_channel": 0,
+            "tech_channel": 0,
             "user_channel": 0
         },
         "rdm": {

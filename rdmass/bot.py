@@ -38,8 +38,8 @@ async def sched_assignment_group(assignments_groups: List[Text], action: Text) -
     success = await handle_assignment_group(assignments_groups, action)
 
     # handle tech message
-    if config.instance.discord.output_channel:
-        output_channel = await client.fetch_channel(config.instance.discord.output_channel)
+    if config.instance.discord.tech_channel:
+        tech_channel = await client.fetch_channel(config.instance.discord.tech_channel)
 
         output_message = (
             config.message.tech_channel_message_success if success else config.message.tech_channel_message_fail
@@ -51,7 +51,7 @@ async def sched_assignment_group(assignments_groups: List[Text], action: Text) -
             }
         )
 
-        await output_channel.send(output_message)
+        await tech_channel.send(output_message)
 
     # handle users message
     if success and config.instance.discord.user_channel:
