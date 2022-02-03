@@ -137,7 +137,8 @@ async def get_status_message() -> Text:
             (
                 f"**Processing** {status['processing']['current']}/{status['processing']['max']} "
                 f"({status['processing']['ignored']} ignored, {status['processing']['total']} total)\n"
-                f"**Pokemon** {status['pokemon']['active_iv']}/{status['pokemon']['active_total']}\n"
+                f"**Pokemon** {status['pokemon']['active_iv']}/{status['pokemon']['active_total']} "
+                f"({int(status['pokemon']['active_iv'])/int(status['pokemon']['active_total'])*100:.2f}%)\n"
                 f"**Devices** {status['devices']['online']}/{status['devices']['total']}"
             )
             if status
