@@ -23,7 +23,9 @@ status_refresh_component = manage_components.create_actionrow(
 @client.event
 async def on_ready() -> None:
     print("RDMAss ready to shine!")
-    scheduler.start()
+
+    if not scheduler.running:
+        scheduler.start()
 
 
 @client.event
