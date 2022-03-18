@@ -8,9 +8,9 @@ A Python Discord bot creating an interaction with RDM API.
 - Reload All Instances
 
 ## Requirements
-- Must be on Developemnt build of RDM
+- RDM
 - At least Python3.6 (virtualenv optional but welcome)
-- Discord Bot Token (enable presence intent, server members intent, message content intent and slash commands privilages)
+- Discord Bot Token (enable presence intent, server members intent, message content intent and slash commands privileges)
 
 ## Quick Setup
 1. Fetch repo, install packages from `requirements.txt` and copy `config.example.json` to `config.json`
