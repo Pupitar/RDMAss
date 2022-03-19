@@ -10,7 +10,13 @@ from discord_slash.utils import manage_components
 
 from rdmass.config import permissions, config, scheduler
 from rdmass.rdm import RDMSetApi, RDMGetApi
-from rdmass.utils import handle_bot_list, get_status_message, handle_dt_picker, handle_assignment_group
+from rdmass.utils import (
+    handle_bot_list,
+    get_status_message,
+    handle_dt_picker,
+    handle_assignment_group,
+    scheduler_migration,
+)
 
 client = discord.Client(intents=discord.Intents.all())
 slash = SlashCommand(client, sync_commands=True)
@@ -26,6 +32,7 @@ async def on_ready() -> None:
 
     if not scheduler.running:
         scheduler.start()
+        scheduler_migration()
 
 
 @client.event

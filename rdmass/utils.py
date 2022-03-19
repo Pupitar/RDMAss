@@ -8,7 +8,7 @@ from discord_slash import ComponentContext
 from discord_slash.utils import manage_components
 from typing import Set, Text, Dict, List, Tuple, Union, cast, Any, Callable, TypeVar
 
-from rdmass.config import config, logging
+from rdmass.config import config, logging, scheduler
 from rdmass.rdm import RDMGetApi, RDMSetApi
 
 log = logging.getLogger(__name__)
@@ -261,3 +261,10 @@ def timeit(func: F) -> F:
         return result
 
     return cast(F, wrapper)
+
+
+# TODO: Auto migrate old Schedules. Remove me after some time
+def scheduler_migration() -> None:
+    for job in scheduler.get_jobs():
+        if len(job.args) > 2:
+            scheduler.modify_job(job_id=job.id, args=job.args[:2])
