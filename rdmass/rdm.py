@@ -74,7 +74,7 @@ class RDMSetApi:
         params = {
             "assign_device": True,
             "device_name": device_name,
-            "instance_name": instance_name,
+            "instance": instance_name,
         }
 
         output = await set_request(params)
@@ -86,7 +86,7 @@ class RDMSetApi:
         params = {
             "assign_device_group": True,
             "device_group_name": device_group_name,
-            "instance_name": instance_name,
+            "instance": instance_name,
         }
 
         output = await set_request(params)

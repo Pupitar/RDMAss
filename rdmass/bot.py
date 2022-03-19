@@ -10,7 +10,13 @@ from discord_slash.utils import manage_components
 
 from rdmass.config import permissions, config, scheduler
 from rdmass.rdm import RDMSetApi, RDMGetApi
-from rdmass.utils import handle_bot_list, get_status_message, handle_dt_picker, handle_assignment_group
+from rdmass.utils import (
+    handle_bot_list,
+    get_status_message,
+    handle_dt_picker,
+    handle_assignment_group,
+    scheduler_migration,
+)
 
 client = discord.Client(intents=discord.Intents.all())
 slash = SlashCommand(client, sync_commands=True)
@@ -23,7 +29,10 @@ status_refresh_component = manage_components.create_actionrow(
 @client.event
 async def on_ready() -> None:
     print("RDMAss ready to shine!")
-    scheduler.start()
+
+    if not scheduler.running:
+        scheduler.start()
+        scheduler_migration()
 
 
 @client.event
@@ -34,19 +43,42 @@ async def on_component(ctx: ComponentContext) -> None:
 
 
 @client.event
-async def sched_assignment_group(
-    assignments_groups: List[Text], action: Text, schedule_name: Text = None, output_channel: int = None
-) -> None:
+async def sched_assignment_group(assignments_groups: List[Text], action: Text) -> None:
     success = await handle_assignment_group(assignments_groups, action)
 
-    if output_channel:
+    # handle tech message
+    if config.instance.discord.tech_channel:
+        tech_channel = await client.fetch_channel(config.instance.discord.tech_channel)
+
         output_message = (
-            f"Scheduled job **{schedule_name}** with action **{action}** "
-            f"fired for groups **{', '.join(assignments_groups)}** "
-            f"**{'failed!' if not success else 'was successful.'}**"
+            config.message.tech_channel_message_success if success else config.message.tech_channel_message_fail
+        ).format(
+            **{
+                "action": action,
+                "type": "Scheduled",
+                "assignments_groups": ", ".join(assignments_groups),
+            }
         )
-        channel = await client.fetch_channel(output_channel)
-        await channel.send(output_message)
+
+        await tech_channel.send(output_message)
+
+    # handle users message
+    if success and config.instance.discord.user_channel:
+        user_channel = await client.fetch_channel(config.instance.discord.user_channel)
+
+        output_message = (
+            config.message.user_channel_message_request
+            if action == "request"
+            else config.message.user_channel_message_start
+        ).format(
+            **{
+                "action": action,
+                "type": "Scheduled",
+                "assignments_groups": ", ".join(assignments_groups),
+            }
+        )
+
+        await user_channel.send(output_message)
 
 
 @slash.slash(name="rdm-jobs", guild_ids=[config.instance.discord.guild_id], permissions=permissions)
@@ -210,10 +242,15 @@ async def rdm_assignment_group(ctx: ComponentContext) -> Optional[SlashMessage]:
 
     elif action_type_ctx.custom_id == "instant":
         success = await handle_assignment_group(selected_assignments, action)
+
         output_message = (
-            f"Instant job with action **{action_row_ctx.custom_id}** "
-            f"fired for groups **{', '.join(selected_assignments)}** "
-            f"{'**failed!**' if not success else 'was **successful.**'}"
+            config.message.tech_channel_message_success if success else config.message.tech_channel_message_fail
+        ).format(
+            **{
+                "action": action_row_ctx.custom_id,
+                "type": "Instant",
+                "assignments_groups": ", ".join(selected_assignments),
+            }
         )
         return await action_type_ctx.edit_origin(
             content=output_message,
@@ -229,8 +266,6 @@ async def rdm_assignment_group(ctx: ComponentContext) -> Optional[SlashMessage]:
             args=[
                 selected_assignments,
                 action_row_ctx.custom_id,
-                scheduler_name,
-                config.instance.discord.output_channel,
             ],
             name=scheduler_name,
         )
