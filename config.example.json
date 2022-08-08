@@ -6,8 +6,8 @@
     "instance": {
         "discord": {
             "guild_id": 1234567890,
-            "output_channel": 2345678901,
-            "enabled_roles": [3456789012, 4567890123]
+            "enabled_roles": [3456789012, 4567890123],
+            "tech_channel": 2345678901
         },
         "rdm": {
             "api_endpoint": "http://127.0.0.1:9000",

@@ -1,13 +1,19 @@
-from typing import Set, Text, Dict, List, Tuple, Union
+from timeit import default_timer as timer
 
 import arrow
 import httpx
+from datetime import timedelta
 from discord import Client
 from discord_slash import ComponentContext
 from discord_slash.utils import manage_components
+from typing import Set, Text, Dict, List, Tuple, Union, cast, Any, Callable, TypeVar
 
-from rdmass.config import config
+from rdmass.config import config, logging, scheduler
 from rdmass.rdm import RDMGetApi, RDMSetApi
+
+log = logging.getLogger(__name__)
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 def create_action_list(
@@ -151,6 +157,7 @@ async def get_status_message() -> Text:
 async def handle_dt_picker(client: Client, ctx: ComponentContext) -> Tuple[ComponentContext, arrow.Arrow, arrow.Arrow]:
     dt_now = arrow.now(config.locale.timezone).shift(hours=+1).replace(minute=0, second=0)
 
+    # DAYS
     days = [
         {"label": f"{dt.format(config.locale.date_format)}", "value": f"{dt.year},{dt.month},{dt.day}"}
         for dt in arrow.Arrow.range("day", dt_now, dt_now.shift(days=+23))
@@ -172,6 +179,8 @@ async def handle_dt_picker(client: Client, ctx: ComponentContext) -> Tuple[Compo
     year, month, day = map(int, days_ctx.selected_options[0].split(","))
 
     tmp_dt = dt_now.replace(year=year, month=month, day=day, hour=0)
+
+    # HOURS
     hours_list = (
         arrow.Arrow.range("hour", dt_now, dt_now.shift(hours=+23))
         if days_ctx.selected_options[0] == days[0]["value"]
@@ -198,13 +207,37 @@ async def handle_dt_picker(client: Client, ctx: ComponentContext) -> Tuple[Compo
     await days_ctx.edit_origin(content="Pick an hour", components=[action_row])
 
     hours_ctx = await manage_components.wait_for_component(client, components=action_row)
-
     year, month, day, hour = map(int, hours_ctx.selected_options[0].split(","))
-
     dt_output = arrow.Arrow(year, month, day, hour, tzinfo=config.locale.timezone)
+
+    # MINUTES
+    minutes = [
+        {
+            "label": f"{dt_output.format(config.locale.date_format)} "
+            f"{dt_output.replace(minute=minute).format(config.locale.time_format)}",
+            "value": f"{minute:02d}",
+        }
+        for minute in list(range(0, 60, 5))
+    ]
+
+    action_list = [
+        manage_components.create_select(
+            custom_id="dt_minutes_picker",
+            placeholder="...",
+            min_values=1,
+            max_values=1,
+            options=minutes,
+        )
+    ]
+    action_row = manage_components.create_actionrow(*action_list)
+    await hours_ctx.edit_origin(content="Pick minute", components=[action_row])
+
+    minutes_ctx = await manage_components.wait_for_component(client, components=action_row)
+
+    dt_output = dt_output.replace(minute=int(minutes_ctx.selected_options[0]))
     dt_output_utc = dt_output.to("utc")
 
-    return hours_ctx, dt_output_utc, dt_output
+    return minutes_ctx, dt_output_utc, dt_output
 
 
 async def handle_assignment_group(assignments_groups: Union[Set, List[Text]], action: Text) -> bool:
@@ -217,3 +250,21 @@ async def handle_assignment_group(assignments_groups: Union[Set, List[Text]], ac
         status = False
     finally:
         return status
+
+
+def timeit(func: F) -> F:
+    def wrapper(*args, **kwargs):
+        start = timer()
+        result = func(*args, **kwargs)
+        end = timer()
+        log.debug(f"{func.__name__} took {timedelta(seconds=end-start)}")
+        return result
+
+    return cast(F, wrapper)
+
+
+# TODO: Auto migrate old Schedules. Remove me after some time
+def scheduler_migration() -> None:
+    for job in scheduler.get_jobs():
+        if len(job.args) > 2:
+            scheduler.modify_job(job_id=job.id, args=job.args[:2])

@@ -9,8 +9,9 @@
     "instance": {
         "discord": {
             "guild_id": 0,
-            "output_channel": 0,
-            "enabled_roles": [0, 0]
+            "enabled_roles": [0, 0],
+            "tech_channel": 0,
+            "user_channel": 0
         },
         "rdm": {
             "api_endpoint": "http://127.0.0.1:9000",
@@ -20,11 +21,17 @@
     },
     "locale": {
         "date_format": "YYYY.MM.DD",
-        "time_format": "HH:mm:ss",
+        "time_format": "HH:mm",
         "timezone": "UTC"
     },
     "sentry": {
         "dns": "",
         "traces_sample_rate": 1.0
+    },
+    "message": {
+        "tech_channel_message_success": "**[Success]** {type} job with action **{action}** for groups **{assignments_groups}**",
+        "tech_channel_message_fail": "**[Fail]** {type} job with action **{action}** for groups **{assignments_groups}**",
+        "user_channel_message_request": "Quests scan has started.",
+        "user_channel_message_start": "IV scans are back."
     }
 }
