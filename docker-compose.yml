@@ -1,0 +1,13 @@
+version: '3.1'
+services:
+  rdmass:
+    container_name: rdmass
+    build:
+      context: ./rdmass
+    restart: unless-stopped
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ./rdmass/config.json:/usr/src/app/config.json
+    depends_on:
+      - rdm
