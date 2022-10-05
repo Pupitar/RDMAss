@@ -252,6 +252,17 @@ async def handle_assignment_group(assignments_groups: Union[Set, List[Text]], ac
         return status
 
 
+async def handle_clean() -> bool:
+    status = True
+    try:
+        ra = RDMSetApi()
+        assert await ra.clear_all_quests()
+    except (AssertionError, httpx.RequestError):
+        status = False
+    finally:
+        return status
+
+
 def timeit(func: F) -> F:
     def wrapper(*args, **kwargs):
         start = timer()

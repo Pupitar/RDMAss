@@ -16,6 +16,7 @@ from rdmass.utils import (
     handle_dt_picker,
     handle_assignment_group,
     scheduler_migration,
+    handle_clean,
 )
 
 client = discord.Client(intents=discord.Intents.all())
@@ -79,6 +80,29 @@ async def sched_assignment_group(assignments_groups: List[Text], action: Text) -
         )
 
         await user_channel.send(output_message)
+
+
+@client.event
+async def sched_clean() -> None:
+    success = await handle_clean()
+
+    # handle tech message
+    if config.instance.discord.tech_channel:
+        tech_channel = await client.fetch_channel(config.instance.discord.tech_channel)
+
+        output_message = (
+            config.message.tech_channel_message_clean_success
+            if success else
+            config.message.tech_channel_message_clean_fail
+        )
+
+        await tech_channel.send(output_message)
+
+    # handle users message
+    if success and config.instance.discord.user_channel:
+        user_channel = await client.fetch_channel(config.instance.discord.user_channel)
+
+        await user_channel.send(config.message.user_channel_message_clean)
 
 
 @slash.slash(name="rdm-jobs", guild_ids=[config.instance.discord.guild_id], permissions=permissions)
@@ -156,15 +180,49 @@ async def rdm_reload(ctx: ComponentContext) -> None:
     permissions=permissions,
 )
 async def rdm_clear(ctx: ComponentContext) -> None:
-    ra = RDMSetApi()
-    try:
-        status = await ra.clear_all_quests()
-    except httpx.RequestError as e:
-        message = f"Quests cleanup failed!\nError: {type(e).__name__}: {e}"
+    cancel_button = manage_components.create_button(custom_id="cancel", style=ButtonStyle.gray, label="Cancel")
+    action_type = manage_components.create_actionrow(
+        *[
+            manage_components.create_button(custom_id="schedule", style=ButtonStyle.blue, label="Schedule"),
+            manage_components.create_button(custom_id="instant", style=ButtonStyle.blue, label="Instant"),
+            cancel_button,
+        ]
+    )
+
+    await ctx.send("Select clean type", components=[action_type], hidden=config.bot.hide_bot_message)
+
+    action_type_ctx = await manage_components.wait_for_component(client, components=[action_type])
+    action = action_type_ctx.custom_id
+
+    if action == "cancel":
+        return await action_type_ctx.edit_origin(content="Aborted.", components=None)
+
+    elif action == "instant":
+        try:
+            ra = RDMSetApi()
+            status = await ra.clear_all_quests()
+        except httpx.RequestError as e:
+            message = f"Quests cleanup failed!\nError: {type(e).__name__}: {e}"
+        else:
+            message = f"Quests {'cleaned!' if status else 'cleanup failed!'}"
+        finally:
+            await action_type_ctx.edit_origin(content=message, components=None, hidden=config.bot.hide_bot_message)
+
     else:
-        message = f"Quests {'cleaned!' if status else 'cleanup failed!'}"
-    finally:
-        await ctx.send(message, hidden=config.bot.hide_bot_message)
+        hours_ctx, arrow_dt_utc, arrow_dt = await handle_dt_picker(client, action_type_ctx)
+        scheduler_name = f"Clean Quests"
+        scheduler.add_job(
+            func=sched_clean,
+            trigger="date",
+            run_date=arrow_dt_utc.datetime,
+            name=scheduler_name,
+        )
+
+        dt_format = f"{config.locale.date_format} {config.locale.time_format}"
+        await hours_ctx.edit_origin(
+            content=f"New job **{scheduler_name}** added. Will be fired at **{arrow_dt.format(dt_format)}**",
+            components=None,
+        )
 
 
 @slash.slash(
