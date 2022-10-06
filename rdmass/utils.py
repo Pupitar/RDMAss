@@ -154,7 +154,7 @@ async def get_status_message() -> Text:
 
 
 async def handle_dt_picker(client: Client, ctx: ComponentContext) -> Tuple[ComponentContext, arrow.Arrow, arrow.Arrow]:
-    dt_now = arrow.now(config.locale.timezone).shift(hours=+1).replace(minute=0, second=0)
+    dt_now = arrow.now(config.locale.timezone).replace(minute=0, second=0)
 
     # DAYS
     days = [
