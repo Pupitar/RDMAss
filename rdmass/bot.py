@@ -259,6 +259,9 @@ async def rdm_assignment_group(ctx: ComponentContext) -> Optional[SlashMessage]:
             components=None,
         )
 
+    iv_only = all(x in config.instance.rdm.get("iv_only_instances", []) for x in selected_assignments)
+    quest_only = all(x in config.instance.rdm.get("quest_only_instances", []) for x in selected_assignments)
+
     cancel_button = manage_components.create_button(custom_id="cancel", style=ButtonStyle.gray, label="Cancel")
     action_row = manage_components.create_actionrow(
         *[
@@ -276,13 +279,18 @@ async def rdm_assignment_group(ctx: ComponentContext) -> Optional[SlashMessage]:
     )
 
     output_message = f"Target groups: {', '.join(selected_assignments)}"
-    await assignment_group_ctx.edit_origin(
-        content=output_message,
-        components=[action_row],
-    )
-    action_row_ctx = await manage_components.wait_for_component(client, components=[action_row])
 
-    action = action_row_ctx.custom_id
+    if not iv_only and not quest_only:
+        await assignment_group_ctx.edit_origin(
+            content=output_message,
+            components=[action_row],
+        )
+        action_row_ctx = await manage_components.wait_for_component(client, components=[action_row])
+        action = action_row_ctx.custom_id
+    else:
+        action = "start" if iv_only else "request"
+        action_row_ctx = assignment_group_ctx
+
     if action == "cancel":
         return await action_row_ctx.edit_origin(content="Aborted.", components=None)
 
@@ -303,7 +311,7 @@ async def rdm_assignment_group(ctx: ComponentContext) -> Optional[SlashMessage]:
             config.message.tech_channel_message_success if success else config.message.tech_channel_message_fail
         ).format(
             **{
-                "action": action_row_ctx.custom_id,
+                "action": action,
                 "type": "Instant",
                 "assignments_groups": ", ".join(selected_assignments),
             }
@@ -314,14 +322,14 @@ async def rdm_assignment_group(ctx: ComponentContext) -> Optional[SlashMessage]:
         )
     else:
         hours_ctx, arrow_dt_utc, arrow_dt = await handle_dt_picker(client, action_type_ctx)
-        scheduler_name = f"{action_row_ctx.custom_id} {', '.join(selected_assignments)}"
+        scheduler_name = f"{action} {', '.join(selected_assignments)}"
         scheduler.add_job(
             func=sched_assignment_group,
             trigger="date" if action_type_ctx.custom_id == "schedule" else None,
             run_date=arrow_dt_utc.datetime if action_type_ctx.custom_id == "schedule" else None,
             args=[
                 selected_assignments,
-                action_row_ctx.custom_id,
+                action,
             ],
             name=scheduler_name,
         )

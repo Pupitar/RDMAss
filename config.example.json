@@ -12,7 +12,9 @@
         "rdm": {
             "api_endpoint": "http://127.0.0.1:9000",
             "username": "rdm_root_user",
-            "password": "6d9fdb16ed509488eeef6af2f842a744"
+            "password": "6d9fdb16ed509488eeef6af2f842a744",
+            "iv_only_instances": ["iv_instance_one", "iv_instance_two"],
+            "quest_only_instances": ["quests_one"]
         }
     },
     "locale": {

@@ -42,8 +42,8 @@ class RDMGetApi:
             return output["data"]["devices"]
 
     @classmethod
-    async def get_instances(cls) -> Optional[List[Dict]]:
-        params = {"show_instances": True, "skip_instance_status": True}
+    async def get_instances(cls, skip_status: bool = True) -> Optional[List[Dict]]:
+        params = {"show_instances": True, "skip_instance_status": skip_status}
 
         output = await get_request(params)
         log.debug(f"RDMGetApi.get_instances: {output}")
