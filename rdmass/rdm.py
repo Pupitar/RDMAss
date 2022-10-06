@@ -21,13 +21,14 @@ async def client_get(url: Text, params: Dict) -> httpx.Response:
 
 async def get_request(params: Dict) -> Optional[Dict]:
     response = await client_get(config.instance.rdm.api_endpoint + "/api/get_data", params)
-    if response.status_code == 200 and response.json().get("status") == "ok":
+    if response.status_code == httpx.codes.OK and response.json().get("status") == "ok":
         return response.json()
 
 
 async def set_request(params: Dict) -> bool:
     response = await client_get(config.instance.rdm.api_endpoint + "/api/set_data", params)
-    return response.status_code == 200
+    log.debug(f"set_request response code: {response.status_code}")
+    return response.status_code == httpx.codes.OK
 
 
 class RDMGetApi:

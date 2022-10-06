@@ -133,9 +133,8 @@ async def handle_bot_list(
 
 # noinspection PyUnboundLocalVariable
 async def get_status_message() -> Text:
-    ra = RDMGetApi()
     try:
-        status = await ra.get_status()
+        status = await RDMGetApi.get_status()
     except httpx.RequestError as e:
         message = f"Status fetch failed!\nError: {type(e).__name__}: {e}"
     else:
@@ -155,7 +154,7 @@ async def get_status_message() -> Text:
 
 
 async def handle_dt_picker(client: Client, ctx: ComponentContext) -> Tuple[ComponentContext, arrow.Arrow, arrow.Arrow]:
-    dt_now = arrow.now(config.locale.timezone).shift(hours=+1).replace(minute=0, second=0)
+    dt_now = arrow.now(config.locale.timezone).replace(minute=0, second=0)
 
     # DAYS
     days = [
@@ -246,6 +245,16 @@ async def handle_assignment_group(assignments_groups: Union[Set, List[Text]], ac
         ra = RDMSetApi()
         for assignment_group in assignments_groups:
             assert await ra.assignment_group(name=assignment_group, re_quest=action == "request")
+    except (AssertionError, httpx.RequestError):
+        status = False
+    finally:
+        return status
+
+
+async def handle_clean() -> bool:
+    status = True
+    try:
+        assert await RDMSetApi.clear_all_quests()
     except (AssertionError, httpx.RequestError):
         status = False
     finally:

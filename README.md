@@ -2,9 +2,9 @@
 A Python Discord bot creating an interaction with RDM API.
 
 ### Features
-- Assignment Groups scheduled & instant
+- Assignment Groups (scheduled & instant)
+- Clear All Quests (scheduled & instant)
 - RDM Status
-- Clear All Quests
 - Reload All Instances
 
 ## Requirements

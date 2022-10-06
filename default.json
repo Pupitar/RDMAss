@@ -31,7 +31,10 @@
     "message": {
         "tech_channel_message_success": "**[Success]** {type} job with action **{action}** for groups **{assignments_groups}**",
         "tech_channel_message_fail": "**[Fail]** {type} job with action **{action}** for groups **{assignments_groups}**",
+        "tech_channel_message_clean_success": "**[Success]** Scheduled job with action Clean Quests.",
+        "tech_channel_message_clean_fail": "**[Fail]** Scheduled job with action Clean Quests.",
         "user_channel_message_request": "Quests scan has started.",
-        "user_channel_message_start": "IV scans are back."
+        "user_channel_message_start": "IV scans are back.",
+        "user_channel_message_clean": "Quests cleaned."
     }
 }
