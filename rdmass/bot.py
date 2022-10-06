@@ -92,8 +92,8 @@ async def sched_clean() -> None:
 
         output_message = (
             config.message.tech_channel_message_clean_success
-            if success else
-            config.message.tech_channel_message_clean_fail
+            if success
+            else config.message.tech_channel_message_clean_fail
         )
 
         await tech_channel.send(output_message)
