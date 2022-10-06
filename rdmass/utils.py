@@ -133,9 +133,8 @@ async def handle_bot_list(
 
 # noinspection PyUnboundLocalVariable
 async def get_status_message() -> Text:
-    ra = RDMGetApi()
     try:
-        status = await ra.get_status()
+        status = await RDMGetApi.get_status()
     except httpx.RequestError as e:
         message = f"Status fetch failed!\nError: {type(e).__name__}: {e}"
     else:
@@ -255,8 +254,7 @@ async def handle_assignment_group(assignments_groups: Union[Set, List[Text]], ac
 async def handle_clean() -> bool:
     status = True
     try:
-        ra = RDMSetApi()
-        assert await ra.clear_all_quests()
+        assert await RDMSetApi.clear_all_quests()
     except (AssertionError, httpx.RequestError):
         status = False
     finally:

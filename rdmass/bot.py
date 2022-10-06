@@ -161,9 +161,8 @@ async def rdm_status(ctx: ComponentContext) -> None:
     permissions=permissions,
 )
 async def rdm_reload(ctx: ComponentContext) -> None:
-    ra = RDMSetApi()
     try:
-        status = await ra.reload_instances()
+        status = await RDMSetApi.reload_instances()
     except httpx.RequestError as e:
         message = f"Instances reload failed!\nError: {e}"
     else:
@@ -199,8 +198,7 @@ async def rdm_clear(ctx: ComponentContext) -> None:
 
     elif action == "instant":
         try:
-            ra = RDMSetApi()
-            status = await ra.clear_all_quests()
+            status = await RDMSetApi.clear_all_quests()
         except httpx.RequestError as e:
             message = f"Quests cleanup failed!\nError: {type(e).__name__}: {e}"
         else:
