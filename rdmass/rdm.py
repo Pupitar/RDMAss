@@ -27,6 +27,7 @@ async def get_request(params: Dict) -> Optional[Dict]:
 
 async def set_request(params: Dict) -> bool:
     response = await client_get(config.instance.rdm.api_endpoint + "/api/set_data", params)
+    log.debug(f"set_request response code: {response.status_code}")
     return response.status_code == httpx.codes.OK
 
 
