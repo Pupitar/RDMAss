@@ -1,5 +1,3 @@
-from typing import Optional, List, Text
-
 import arrow
 import discord
 import httpx
@@ -7,6 +5,7 @@ from apscheduler.jobstores.base import JobLookupError
 from discord_slash import SlashCommand, ComponentContext
 from discord_slash.model import ButtonStyle, SlashMessage
 from discord_slash.utils import manage_components
+from typing import Optional, List, Text
 
 from rdmass.config import permissions, config, scheduler
 from rdmass.rdm import RDMSetApi, RDMGetApi
@@ -17,6 +16,7 @@ from rdmass.utils import (
     handle_assignment_group,
     scheduler_migration,
     handle_clean,
+    handle_events,
 )
 
 client = discord.Client(intents=discord.Intents.all())
@@ -34,6 +34,17 @@ async def on_ready() -> None:
     if not scheduler.running:
         scheduler.start()
         scheduler_migration()
+
+        if config.auto_event.enabled:
+            scheduler.add_job(
+                id="handle_events",
+                name="events_cron",
+                func=sched_handle_events,
+                trigger="cron",
+                minute=f"*/{config.auto_event.check_every}",
+                max_instances=1,
+                replace_existing=True,
+            )
 
 
 @client.event
@@ -83,6 +94,11 @@ async def sched_assignment_group(assignments_groups: List[Text], action: Text) -
 
 
 @client.event
+async def sched_handle_events() -> None:
+    return await handle_events(client, sched_assignment_group)
+
+
+@client.event
 async def sched_clean() -> None:
     success = await handle_clean()
 
@@ -119,6 +135,7 @@ async def rdm_jobs(ctx: ComponentContext) -> Optional[SlashMessage]:
             .format(f"{config.locale.date_format} {config.locale.time_format}"),
         }
         for job in jobs
+        if job.id != "handle_events"
     ]
 
     if not jobs:
@@ -151,6 +168,16 @@ async def rdm_status(ctx: ComponentContext) -> None:
     await ctx.send(
         content=await get_status_message(), components=[status_refresh_component], hidden=config.bot.hide_bot_message
     )
+
+
+@slash.slash(
+    name="rdm-events",
+    description="RDM Events Check",
+    guild_ids=[config.instance.discord.guild_id],
+    permissions=permissions,
+)
+async def rdm_events(ctx: ComponentContext) -> None:
+    await ctx.send(await sched_handle_events(), hidden=config.bot.hide_bot_message)
 
 
 # noinspection PyUnboundLocalVariable

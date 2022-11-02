@@ -1,14 +1,17 @@
-from timeit import default_timer as timer
-
+import aiofiles
+import aiofiles.os
 import arrow
 import httpx
+import json
 from datetime import timedelta
+from dateutil import tz
 from discord import Client
 from discord_slash import ComponentContext
 from discord_slash.utils import manage_components
+from timeit import default_timer as timer
 from typing import Set, Text, Dict, List, Tuple, Union, cast, Any, Callable, TypeVar
 
-from rdmass.config import config, logging, scheduler
+from rdmass.config import config, logging, scheduler, past_events_path
 from rdmass.rdm import RDMGetApi, RDMSetApi
 
 log = logging.getLogger(__name__)
@@ -277,3 +280,145 @@ def scheduler_migration() -> None:
     for job in scheduler.get_jobs():
         if len(job.args) > 2:
             scheduler.modify_job(job_id=job.id, args=job.args[:2])
+
+
+async def handle_events(bot_client: Client, scheduler_target: Any) -> None:
+    # sanity checks
+    if not (config.auto_event.enabled and config.auto_event.quest_instances and config.auto_event.iv_instances):
+        return
+
+    # check if file exists
+    past_events_path_exists = await aiofiles.os.path.exists(past_events_path)
+    if not past_events_path_exists:
+        log.debug("handle_events - creating past_events file")
+        async with aiofiles.open(past_events_path, mode="w") as f:
+            await f.write("[]")
+        past_event_dates = set()
+
+    else:
+        log.debug("handle_events - loaded past_events file")
+        # load previously added job dates
+        async with aiofiles.open(past_events_path, mode="r") as f:
+            contents = await f.read()
+            past_event_dates = set(json.loads(contents))
+
+    # fetch events from remote
+    async with httpx.AsyncClient() as client:
+        response = await client.get(config.resource.pogoinfo_events, headers={"user-agent": config.bot.user_agent})
+        log.info(f"httpx GET pogoinfo events")
+
+    raw_events = response.json()
+    log.debug("handle_events - fetched pogoinfo events")
+
+    skip_diff = 7200
+    events = []
+    beginning_dates = set()
+    now = arrow.now(tz=config.locale.timezone)
+
+    for event in raw_events:
+        # skip events without quest changes
+        if not event["has_quests"]:
+            continue
+
+        # include only selected event types
+        if event["type"] in config.auto_event.types:
+            if event["start"]:
+                start_date = arrow.get(event["start"], tzinfo=config.locale.timezone)
+
+                if (
+                    config.auto_event.time_range[0] <= start_date.hour <= config.auto_event.time_range[1]
+                    and (start_date - now).total_seconds() > skip_diff
+                ):
+                    beginning_dates.add(event["start"])
+                    events.append(
+                        {
+                            "beginning": True,
+                            "name": event["name"],
+                            "type": event["type"],
+                            "date": event["start"],
+                            "date_obj": start_date,
+                        }
+                    )
+            if event["end"]:
+                end_date = arrow.get(event["end"], tzinfo=config.locale.timezone)
+
+                if (
+                    config.auto_event.time_range[0] <= end_date.hour <= config.auto_event.time_range[1]
+                    and (end_date - now).total_seconds() > skip_diff
+                ):
+                    events.append(
+                        {
+                            "beginning": False,
+                            "name": event["name"],
+                            "type": event["type"],
+                            "date": event["end"],
+                            "date_obj": end_date,
+                        }
+                    )
+
+    log.debug(f"handle_events - got {len(events)} events before cleanup")
+
+    # use end events only when there's no beginning event with same date
+    events = [
+        event
+        for event in events
+        if event["date"] not in past_event_dates
+        and (event["beginning"] or not event["beginning"] and event["date"] not in beginning_dates)
+    ]
+
+    if not events:
+        return
+
+    log.debug(f"handle_events - got {len(events)} events after cleanup")
+
+    # add events
+    output_message = config.message.autojob_header
+
+    for event in events:
+        iv_run_date = event["date_obj"] + timedelta(minutes=config.auto_event.execution_time)
+
+        scheduler_name = config.message.new_event_request.format(**{"date": event["date"], "name": event["name"]})
+        output_message += scheduler_name + "\n"
+        scheduler.add_job(
+            id=f"{event['date']}-1",
+            func=scheduler_target,
+            trigger="date",
+            run_date=event["date_obj"].to("UTC").datetime,
+            name=scheduler_name,
+            args=[
+                config.auto_event.quest_instances,
+                "request",
+            ],
+            replace_existing=True,
+        )
+
+        scheduler_name = config.message.new_event_iv.format(
+            **{"date": iv_run_date.format("YYYY-MM-DD HH:mm"), "name": event["name"]}
+        )
+        output_message += scheduler_name + "\n"
+        scheduler.add_job(
+            id=f"{event['date']}-2",
+            func=scheduler_target,
+            trigger="date",
+            run_date=iv_run_date.to("UTC").datetime,
+            name=scheduler_name,
+            args=[
+                config.auto_event.iv_instances,
+                "start",
+            ],
+            replace_existing=True,
+        )
+
+        log.debug(f"handle_events - added event {event['name']} at {event['date']} to scheduler")
+        past_event_dates.add(event["date"])
+
+    # save event dates
+    async with aiofiles.open(past_events_path, mode="w") as f:
+        log.debug(f"handle_events - saving past_events file")
+        await f.write(json.dumps(list(past_event_dates)))
+
+    # handle tech message
+    if config.instance.discord.tech_channel:
+        tech_channel = await bot_client.fetch_channel(config.instance.discord.tech_channel)
+
+        await tech_channel.send(output_message)

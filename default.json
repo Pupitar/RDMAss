@@ -4,7 +4,8 @@
         "hide_bot_message": true,
         "log_level": "INFO",
         "apscheduler_log_level": "INFO",
-        "vendor_log_level": "ERROR"
+        "vendor_log_level": "ERROR",
+        "user_agent": "rdmass/0.1"
     },
     "instance": {
         "discord": {
@@ -35,6 +36,22 @@
         "tech_channel_message_clean_fail": "**[Fail]** Scheduled job with action Clean Quests.",
         "user_channel_message_request": "Quests scan has started.",
         "user_channel_message_start": "IV scans are back.",
-        "user_channel_message_clean": "Quests cleaned."
+        "user_channel_message_clean": "Quests cleaned.",
+        "new_event_request": "[A] {date} reQuest - {name}",
+        "new_event_iv": "[A] {date} IV - {name}",
+        "autojob_header": "**[AutoJob] Scheduled**\n"
+    },
+    "auto_event": {
+        "enabled": false,
+        "cron_enabled": false,
+        "execution_time": 240,
+        "quest_instances": [],
+        "iv_instances": [],
+        "time_range": [8, 16],
+        "types": ["event", "season"],
+        "check_every": 1
+    },
+    "resource": {
+        "pogoinfo_events": "https://raw.githubusercontent.com/ccev/pogoinfo/v2/active/events.json"
     }
 }

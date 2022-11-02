@@ -9,6 +9,8 @@ from pydantic.utils import deep_update
 
 # open config files
 script_path = os.path.dirname(os.path.abspath(__file__))
+past_events_path = os.path.join(script_path, "..", "past_events.json")
+
 with open(os.path.join(script_path, "..", "default.json"), "r") as f:
     default_config = json.load(f)
 with open(os.path.join(script_path, "..", "config.json"), "r") as f:
@@ -50,4 +52,4 @@ scheduler = AsyncIOScheduler(
 )
 
 
-__all__ = ["config", "permissions", "scheduler", "logging"]
+__all__ = ["config", "permissions", "scheduler", "logging", "past_events_path"]

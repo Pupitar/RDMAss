@@ -134,3 +134,4 @@ dmypy.json
 # RDMAss
 config.json
 *.sqlite
+past_events.json

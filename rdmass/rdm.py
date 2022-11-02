@@ -11,7 +11,7 @@ async def client_get(url: Text, params: Dict) -> httpx.Response:
         response = await client.get(
             url,
             auth=(config.instance.rdm.username, config.instance.rdm.password),
-            headers={"user-agent": "rdmass/0.1"},
+            headers={"user-agent": config.bot.user_agent},
             params=params,
         )
         log.info(f"httpx GET {str(response.url).replace(config.instance.rdm.api_endpoint, '')}")
