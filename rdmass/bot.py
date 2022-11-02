@@ -135,7 +135,7 @@ async def rdm_jobs(ctx: ComponentContext) -> Optional[SlashMessage]:
             "value": job.id,
             "description": arrow.get(job.next_run_time)
             .to(config.locale.timezone)
-            .format(f"{config.locale.date_format} {config.locale.time_format}"),
+            .format(f"{config.locale.datetime_format}"),
         }
         for job in jobs
         if job.id != "handle_events"
@@ -236,7 +236,7 @@ async def rdm_clear(ctx: ComponentContext) -> None:
             name=scheduler_name,
         )
 
-        dt_format = f"{config.locale.date_format} {config.locale.time_format}"
+        dt_format = f"{config.locale.datetime_format}"
         await hours_ctx.edit_origin(
             content=f"New job **{scheduler_name}** added. Will be fired at **{arrow_dt.format(dt_format)}**",
             components=None,
@@ -354,7 +354,7 @@ async def rdm_assignment_group(ctx: ComponentContext) -> Optional[SlashMessage]:
             name=scheduler_name,
         )
 
-        dt_format = f"{config.locale.date_format} {config.locale.time_format}"
+        dt_format = f"{config.locale.datetime_format}"
         await hours_ctx.edit_origin(
             content=f"New job **{scheduler_name}** added. Will be fired at **{arrow_dt.format(dt_format)}**",
             components=None,

@@ -51,6 +51,7 @@ Additonal options are available in `default.json`
         }
     },
     "locale": {
+        "datetime_format": "YYYY.MM.DD HH:mm",             // DateTime format (combined)
         "date_format": "YYYY.MM.DD",                       // Date format
         "time_format": "HH:mm",                            // Time format
         "timezone": "UTC"                                  // Timezone (used for assignement scheduler)

@@ -190,7 +190,7 @@ async def handle_dt_picker(client: Client, ctx: ComponentContext) -> Tuple[Compo
     )
     hours = [
         {
-            "label": f"{dt.format(config.locale.date_format)} {dt.format(config.locale.time_format)}",
+            "label": f"{dt.format(config.locale.datetime_format)}",
             "value": f"{dt.year},{dt.month},{dt.day},{dt.hour}",
         }
         for dt in hours_list
@@ -375,9 +375,14 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
     user_output_message = config.message.user_auto_event_header
 
     for event in events:
-        iv_run_date = event["date_obj"] + timedelta(minutes=config.auto_event.execution_time)
+        quest_run_date = event["date_obj"]
+        iv_run_date = quest_run_date + timedelta(minutes=config.auto_event.execution_time)
 
-        message_data = {"date": event["date"], "name": event["name"], "beginning": event["beginning"]}
+        message_data = {
+            "date": quest_run_date.format(config.locale.datetime_format),
+            "name": event["name"],
+            "beginning": event["beginning"]
+        }
         scheduler_tech_name = config.message.tech_auto_event_request.format(**message_data)
         user_output_message += config.message.user_auto_event_request.format(**message_data)
 
@@ -387,7 +392,7 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
             id=f"{event['date']}-1",
             func=scheduler_target,
             trigger="date",
-            run_date=event["date_obj"].to("UTC").datetime,
+            run_date=quest_run_date.to("UTC").datetime,
             name=scheduler_tech_name,
             args=[
                 config.auto_event.quest_instances,
@@ -396,9 +401,7 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
             replace_existing=True,
         )
 
-        message_data = {
-            "date": iv_run_date.format("YYYY-MM-DD HH:mm"), "name": event["name"], "beginning": event["beginning"]
-        }
+        message_data["date"] = iv_run_date.format(config.locale.datetime_format)
         scheduler_tech_name = config.message.tech_auto_event_iv.format(**message_data)
         user_output_message += config.message.user_auto_event_iv.format(**message_data)
 
