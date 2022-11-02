@@ -381,7 +381,11 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
         message_data = {
             "date": quest_run_date.format(config.locale.datetime_format),
             "name": event["name"],
-            "beginning": event["beginning"]
+            "state": (
+                config.message.user_auto_event_start
+                if event["beginning"]
+                else config.message.user_auto_event_end
+            )
         }
         scheduler_tech_name = config.message.tech_auto_event_request.format(**message_data)
         user_output_message += config.message.user_auto_event_request.format(**message_data)
