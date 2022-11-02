@@ -50,7 +50,7 @@
         "execution_time": 240,
         "quest_instances": [],
         "iv_instances": [],
-        "time_range": [8, 16],
+        "time_range": [9, 10],
         "types": ["event", "season"],
         "check_every": 15,
         "skip_diff": 7200
