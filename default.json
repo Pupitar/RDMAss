@@ -38,10 +38,10 @@
         "user_channel_message_start": "IV scans are back.",
         "user_channel_message_clean": "Quests cleaned.",
         "tech_auto_event_header": "**[AutoJob] Scheduled**\n",
-        "tech_auto_event_request": "[A] {date} reQuest - {name}",
-        "tech_auto_event_iv": "[A] {date} IV - {name}",
+        "tech_auto_event_request": "[A] {date} reQuest - {name}\n",
+        "tech_auto_event_iv": "[A] {date} IV - {name}\n",
         "user_auto_event_header": "",
-        "user_auto_event_request": "Quests scan for event {name} has been scheduled for {date}\n",
+        "user_auto_event_request": "Quests scan for event **{name}** has been scheduled for **{date}**\n",
         "user_auto_event_iv": "IV scan are going to be back after quest scan at {date}\n"
     },
     "auto_event": {
