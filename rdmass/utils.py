@@ -393,7 +393,7 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
             func=scheduler_target,
             trigger="date",
             run_date=quest_run_date.to("UTC").datetime,
-            name=scheduler_tech_name,
+            name=scheduler_tech_name.strip(),
             args=[
                 config.auto_event.quest_instances,
                 "request",
@@ -412,7 +412,7 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
             func=scheduler_target,
             trigger="date",
             run_date=iv_run_date.to("UTC").datetime,
-            name=scheduler_tech_name,
+            name=scheduler_tech_name.strip(),
             args=[
                 config.auto_event.iv_instances,
                 "start",
