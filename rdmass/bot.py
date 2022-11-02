@@ -16,7 +16,7 @@ from rdmass.utils import (
     handle_assignment_group,
     scheduler_migration,
     handle_clean,
-    handle_events,
+    handle_auto_events,
 )
 
 client = discord.Client(intents=discord.Intents.all())
@@ -36,6 +36,9 @@ async def on_ready() -> None:
         scheduler_migration()
 
         if config.auto_event.enabled:
+            if config.auto_event.check_every < 1 or config.auto_event.check_every > 60:
+                return log.error("handle_events failed - set check_every to value between 1, 60")
+
             scheduler.add_job(
                 id="handle_events",
                 name="events_cron",
@@ -95,7 +98,7 @@ async def sched_assignment_group(assignments_groups: List[Text], action: Text) -
 
 @client.event
 async def sched_handle_events() -> None:
-    return await handle_events(client, sched_assignment_group)
+    return await handle_auto_events(client, sched_assignment_group)
 
 
 @client.event
@@ -168,16 +171,6 @@ async def rdm_status(ctx: ComponentContext) -> None:
     await ctx.send(
         content=await get_status_message(), components=[status_refresh_component], hidden=config.bot.hide_bot_message
     )
-
-
-@slash.slash(
-    name="rdm-events",
-    description="RDM Events Check",
-    guild_ids=[config.instance.discord.guild_id],
-    permissions=permissions,
-)
-async def rdm_events(ctx: ComponentContext) -> None:
-    await ctx.send(await sched_handle_events(), hidden=config.bot.hide_bot_message)
 
 
 # noinspection PyUnboundLocalVariable

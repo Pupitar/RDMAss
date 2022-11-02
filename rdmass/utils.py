@@ -282,7 +282,7 @@ def scheduler_migration() -> None:
             scheduler.modify_job(job_id=job.id, args=job.args[:2])
 
 
-async def handle_events(bot_client: Client, scheduler_target: Any) -> None:
+async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
     # sanity checks
     if not (config.auto_event.enabled and config.auto_event.quest_instances and config.auto_event.iv_instances):
         return
@@ -310,7 +310,6 @@ async def handle_events(bot_client: Client, scheduler_target: Any) -> None:
     raw_events = response.json()
     log.debug("handle_events - fetched pogoinfo events")
 
-    skip_diff = 7200
     events = []
     beginning_dates = set()
     now = arrow.now(tz=config.locale.timezone)
@@ -327,7 +326,7 @@ async def handle_events(bot_client: Client, scheduler_target: Any) -> None:
 
                 if (
                     config.auto_event.time_range[0] <= start_date.hour <= config.auto_event.time_range[1]
-                    and (start_date - now).total_seconds() > skip_diff
+                    and (start_date - now).total_seconds() > config.auto_event.skip_diff
                 ):
                     beginning_dates.add(event["start"])
                     events.append(
@@ -344,7 +343,7 @@ async def handle_events(bot_client: Client, scheduler_target: Any) -> None:
 
                 if (
                     config.auto_event.time_range[0] <= end_date.hour <= config.auto_event.time_range[1]
-                    and (end_date - now).total_seconds() > skip_diff
+                    and (end_date - now).total_seconds() > config.auto_event.skip_diff
                 ):
                     events.append(
                         {
@@ -372,19 +371,24 @@ async def handle_events(bot_client: Client, scheduler_target: Any) -> None:
     log.debug(f"handle_events - got {len(events)} events after cleanup")
 
     # add events
-    output_message = config.message.autojob_header
+    tech_output_message = config.message.tech_auto_event_header
+    user_output_message = config.message.user_auto_event_header
 
     for event in events:
         iv_run_date = event["date_obj"] + timedelta(minutes=config.auto_event.execution_time)
 
-        scheduler_name = config.message.new_event_request.format(**{"date": event["date"], "name": event["name"]})
-        output_message += scheduler_name + "\n"
+        message_data = {"date": event["date"], "name": event["name"], "beginning": event["beginning"]}
+        scheduler_tech_name = config.message.tech_auto_event_request.format(**message_data)
+        user_output_message += config.message.user_auto_event_request.format(**message_data)
+
+        tech_output_message += scheduler_tech_name
+
         scheduler.add_job(
             id=f"{event['date']}-1",
             func=scheduler_target,
             trigger="date",
             run_date=event["date_obj"].to("UTC").datetime,
-            name=scheduler_name,
+            name=scheduler_tech_name,
             args=[
                 config.auto_event.quest_instances,
                 "request",
@@ -392,16 +396,20 @@ async def handle_events(bot_client: Client, scheduler_target: Any) -> None:
             replace_existing=True,
         )
 
-        scheduler_name = config.message.new_event_iv.format(
-            **{"date": iv_run_date.format("YYYY-MM-DD HH:mm"), "name": event["name"]}
-        )
-        output_message += scheduler_name + "\n"
+        message_data = {
+            "date": iv_run_date.format("YYYY-MM-DD HH:mm"), "name": event["name"], "beginning": event["beginning"]
+        }
+        scheduler_tech_name = config.message.tech_auto_event_iv.format(**message_data)
+        user_output_message += config.message.user_auto_event_iv.format(**message_data)
+
+        tech_output_message += scheduler_tech_name
+
         scheduler.add_job(
             id=f"{event['date']}-2",
             func=scheduler_target,
             trigger="date",
             run_date=iv_run_date.to("UTC").datetime,
-            name=scheduler_name,
+            name=scheduler_tech_name,
             args=[
                 config.auto_event.iv_instances,
                 "start",
@@ -417,8 +425,14 @@ async def handle_events(bot_client: Client, scheduler_target: Any) -> None:
         log.debug(f"handle_events - saving past_events file")
         await f.write(json.dumps(list(past_event_dates)))
 
-    # handle tech message
-    if config.instance.discord.tech_channel:
+    # handle tech messages
+    if config.instance.discord.tech_channel and tech_output_message:
         tech_channel = await bot_client.fetch_channel(config.instance.discord.tech_channel)
 
-        await tech_channel.send(output_message)
+        await tech_channel.send(tech_output_message)
+
+    # handle user messages
+    if config.instance.discord.user_channel and user_output_message:
+        user_channel = await bot_client.fetch_channel(config.instance.discord.user_channel)
+
+        await user_channel.send(user_output_message)

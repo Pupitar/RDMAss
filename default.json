@@ -37,9 +37,12 @@
         "user_channel_message_request": "Quests scan has started.",
         "user_channel_message_start": "IV scans are back.",
         "user_channel_message_clean": "Quests cleaned.",
-        "new_event_request": "[A] {date} reQuest - {name}",
-        "new_event_iv": "[A] {date} IV - {name}",
-        "autojob_header": "**[AutoJob] Scheduled**\n"
+        "tech_auto_event_header": "**[AutoJob] Scheduled**\n",
+        "tech_auto_event_request": "[A] {date} reQuest - {name}",
+        "tech_auto_event_iv": "[A] {date} IV - {name}",
+        "user_auto_event_header": "",
+        "user_auto_event_request": "Quests scan for event {name} has been scheduled for {date}\n",
+        "user_auto_event_iv": "IV scan are going to be back after quest scan at {date}\n"
     },
     "auto_event": {
         "enabled": false,
@@ -49,7 +52,8 @@
         "iv_instances": [],
         "time_range": [8, 16],
         "types": ["event", "season"],
-        "check_every": 1
+        "check_every": 15,
+        "skip_diff": 7200
     },
     "resource": {
         "pogoinfo_events": "https://raw.githubusercontent.com/ccev/pogoinfo/v2/active/events.json"
