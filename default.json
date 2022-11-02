@@ -46,7 +46,6 @@
     },
     "auto_event": {
         "enabled": false,
-        "cron_enabled": false,
         "execution_time": 240,
         "quest_instances": [],
         "iv_instances": [],
