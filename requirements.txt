@@ -9,3 +9,4 @@ arrow~=1.2.1
 sentry_sdk~=1.5.2
 discord.py~=1.7.3
 aiofiles==22.1.0
+simplejson==3.17.6

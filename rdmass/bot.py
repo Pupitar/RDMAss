@@ -39,6 +39,7 @@ async def on_ready() -> None:
             if config.auto_event.check_every < 1 or config.auto_event.check_every > 60:
                 return log.error("handle_events failed - set check_every to value between 1, 60")
 
+            await sched_handle_events()
             scheduler.add_job(
                 id="handle_events",
                 name="events_cron",

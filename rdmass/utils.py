@@ -2,7 +2,7 @@ import aiofiles
 import aiofiles.os
 import arrow
 import httpx
-import json
+import simplejson as json
 from datetime import timedelta
 from dateutil import tz
 from discord import Client
@@ -291,16 +291,24 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
     past_events_path_exists = await aiofiles.os.path.exists(past_events_path)
     if not past_events_path_exists:
         log.debug("handle_events - creating past_events file")
+        past_event_dates = {"main": set(), "filtered": set()}
         async with aiofiles.open(past_events_path, mode="w") as f:
-            await f.write("[]")
-        past_event_dates = set()
+            await f.write(json.dumps(past_event_dates, iterable_as_array=True))
 
     else:
         log.debug("handle_events - loaded past_events file")
         # load previously added job dates
         async with aiofiles.open(past_events_path, mode="r") as f:
             contents = await f.read()
-            past_event_dates = set(json.loads(contents))
+            past_event_dates = json.loads(contents)
+
+            # remove someday :^)
+            if isinstance(past_event_dates, list):
+                past_event_dates = {"main": set(past_event_dates), "filtered": set()}
+            else:
+                past_event_dates = {
+                    "main": set(past_event_dates["main"]), "filtered": set(past_event_dates["filtered"])
+                }
 
     # fetch events from remote
     async with httpx.AsyncClient() as client:
@@ -311,7 +319,9 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
     log.debug("handle_events - fetched pogoinfo events")
 
     events = []
+    filtered_events = []
     beginning_dates = set()
+    beginning_dates_filtered = set()
     now = arrow.now(tz=config.locale.timezone)
 
     for event in raw_events:
@@ -323,37 +333,41 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
         if event["type"] in config.auto_event.types:
             if event["start"]:
                 start_date = arrow.get(event["start"], tzinfo=config.locale.timezone)
+                event_data = {
+                    "beginning": True,
+                    "name": event["name"],
+                    "type": event["type"],
+                    "date": event["start"],
+                    "date_obj": start_date
+                }
 
                 if (
                     config.auto_event.time_range[0] <= start_date.hour <= config.auto_event.time_range[1]
                     and (start_date - now).total_seconds() > config.auto_event.skip_diff
                 ):
                     beginning_dates.add(event["start"])
-                    events.append(
-                        {
-                            "beginning": True,
-                            "name": event["name"],
-                            "type": event["type"],
-                            "date": event["start"],
-                            "date_obj": start_date,
-                        }
-                    )
+                    events.append(event_data)
+                else:
+                    beginning_dates_filtered.add(event["start"])
+                    filtered_events.append(event_data)
+
             if event["end"]:
                 end_date = arrow.get(event["end"], tzinfo=config.locale.timezone)
+                event_data = {
+                    "beginning": False,
+                    "name": event["name"],
+                    "type": event["type"],
+                    "date": event["end"],
+                    "date_obj": end_date
+                }
 
                 if (
                     config.auto_event.time_range[0] <= end_date.hour <= config.auto_event.time_range[1]
                     and (end_date - now).total_seconds() > config.auto_event.skip_diff
                 ):
-                    events.append(
-                        {
-                            "beginning": False,
-                            "name": event["name"],
-                            "type": event["type"],
-                            "date": event["end"],
-                            "date_obj": end_date,
-                        }
-                    )
+                    events.append(event_data)
+                else:
+                    filtered_events.append(event_data)
 
     log.debug(f"handle_events - got {len(events)} events before cleanup")
 
@@ -361,18 +375,27 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
     events = [
         event
         for event in events
-        if event["date"] not in past_event_dates
+        if event["date"] not in past_event_dates["main"]
         and (event["beginning"] or not event["beginning"] and event["date"] not in beginning_dates)
     ]
 
-    if not events:
+    filtered_events = [
+        event
+        for event in filtered_events
+        if event["date"] not in past_event_dates["filtered"]
+        and (event["beginning"] or not event["beginning"] and event["date"] not in beginning_dates_filtered)
+    ]
+
+    if not events and not filtered_events:
+        log.debug(f"handle_events - no events to process")
         return
 
-    log.debug(f"handle_events - got {len(events)} events after cleanup")
+    log.debug(f"handle_events - got {len(events)} events and {len(filtered_events)} after cleanup")
 
     # add events
     tech_output_message = config.message.tech_auto_event_header
     user_output_message = config.message.user_auto_event_header
+    tech_output_filtered_message = config.message.tech_auto_event_filtered_header
 
     for event in events:
         quest_run_date = event["date_obj"]
@@ -387,17 +410,15 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
                 else config.message.user_auto_event_end
             )
         }
-        scheduler_tech_name = config.message.tech_auto_event_request.format(**message_data)
         user_output_message += config.message.user_auto_event_request.format(**message_data)
-
-        tech_output_message += scheduler_tech_name
+        tech_output_message += config.message.tech_auto_event_request.format(**message_data)
 
         scheduler.add_job(
             id=f"{event['date']}-1",
             func=scheduler_target,
             trigger="date",
             run_date=quest_run_date.to("UTC").datetime,
-            name=scheduler_tech_name.strip(),
+            name=config.message.tech_auto_event_request_short.format(**message_data),
             args=[
                 config.auto_event.quest_instances,
                 "request",
@@ -406,17 +427,15 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
         )
 
         message_data["date"] = iv_run_date.format(config.locale.datetime_format)
-        scheduler_tech_name = config.message.tech_auto_event_iv.format(**message_data)
         user_output_message += config.message.user_auto_event_iv.format(**message_data)
-
-        tech_output_message += scheduler_tech_name
+        tech_output_message += config.message.tech_auto_event_iv.format(**message_data)
 
         scheduler.add_job(
             id=f"{event['date']}-2",
             func=scheduler_target,
             trigger="date",
             run_date=iv_run_date.to("UTC").datetime,
-            name=scheduler_tech_name.strip(),
+            name=config.message.tech_auto_event_iv_short.format(**message_data),
             args=[
                 config.auto_event.iv_instances,
                 "start",
@@ -425,21 +444,39 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
         )
 
         log.debug(f"handle_events - added event {event['name']} at {event['date']} to scheduler")
-        past_event_dates.add(event["date"])
+        past_event_dates["main"].add(event["date"])
+
+    for event in filtered_events:
+        quest_run_date = event["date_obj"]
+
+        message_data = {
+            "date": quest_run_date.format(config.locale.datetime_format),
+            "name": event["name"],
+            "state": (
+                config.message.user_auto_event_start
+                if event["beginning"]
+                else config.message.user_auto_event_end
+            )
+        }
+        tech_output_filtered_message += config.message.tech_auto_event_filtered.format(**message_data)
+        past_event_dates["filtered"].add(event["date"])
 
     # save event dates
     async with aiofiles.open(past_events_path, mode="w") as f:
         log.debug(f"handle_events - saving past_events file")
-        await f.write(json.dumps(list(past_event_dates)))
+        await f.write(json.dumps(past_event_dates, iterable_as_array=True))
 
     # handle tech messages
     if config.instance.discord.tech_channel and tech_output_message:
         tech_channel = await bot_client.fetch_channel(config.instance.discord.tech_channel)
 
-        await tech_channel.send(tech_output_message)
+        if events:
+            await tech_channel.send(tech_output_message)
+        if filtered_events:
+            await tech_channel.send(tech_output_filtered_message)
 
     # handle user messages
-    if config.instance.discord.user_channel and user_output_message:
+    if config.instance.discord.user_channel and user_output_message and events:
         user_channel = await bot_client.fetch_channel(config.instance.discord.user_channel)
 
         await user_channel.send(user_output_message)
