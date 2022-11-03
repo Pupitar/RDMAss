@@ -307,7 +307,8 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
                 past_event_dates = {"main": set(past_event_dates), "filtered": set()}
             else:
                 past_event_dates = {
-                    "main": set(past_event_dates["main"]), "filtered": set(past_event_dates["filtered"])
+                    "main": set(past_event_dates["main"]),
+                    "filtered": set(past_event_dates["filtered"]),
                 }
 
     # fetch events from remote
@@ -338,7 +339,7 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
                     "name": event["name"],
                     "type": event["type"],
                     "date": event["start"],
-                    "date_obj": start_date
+                    "date_obj": start_date,
                 }
 
                 if (
@@ -358,7 +359,7 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
                     "name": event["name"],
                     "type": event["type"],
                     "date": event["end"],
-                    "date_obj": end_date
+                    "date_obj": end_date,
                 }
 
                 if (
@@ -405,10 +406,8 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
             "date": quest_run_date.format(config.locale.datetime_format),
             "name": event["name"],
             "state": (
-                config.message.user_auto_event_start
-                if event["beginning"]
-                else config.message.user_auto_event_end
-            )
+                config.message.user_auto_event_start if event["beginning"] else config.message.user_auto_event_end
+            ),
         }
         user_output_message += config.message.user_auto_event_request.format(**message_data)
         tech_output_message += config.message.tech_auto_event_request.format(**message_data)
@@ -453,10 +452,8 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
             "date": quest_run_date.format(config.locale.datetime_format),
             "name": event["name"],
             "state": (
-                config.message.user_auto_event_start
-                if event["beginning"]
-                else config.message.user_auto_event_end
-            )
+                config.message.user_auto_event_start if event["beginning"] else config.message.user_auto_event_end
+            ),
         }
         tech_output_filtered_message += config.message.tech_auto_event_filtered.format(**message_data)
         past_event_dates["filtered"].add(event["date"])
