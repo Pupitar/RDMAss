@@ -35,9 +35,14 @@
         "tech_channel_message_fail": "**[Fail]** {type} job with action **{action}** for groups **{assignments_groups}**",
         "tech_channel_message_clean_success": "**[Success]** Scheduled job with action Clean Quests.",
         "tech_channel_message_clean_fail": "**[Fail]** Scheduled job with action Clean Quests.",
+        "user_auto_event_header": "",
+        "user_auto_event_request": "Quests scan for the {state} of the event **{name}** has been scheduled at **{date}**. ",
+        "user_auto_event_iv": "IV scan will be back at **{date}**\n",
         "user_channel_message_request": "Quests scan has started.",
         "user_channel_message_start": "IV scans are back.",
         "user_channel_message_clean": "Quests cleaned.",
+        "user_auto_event_start": "beginning",
+        "user_auto_event_end": "end",
         "tech_auto_event_header": "**[AutoJob] Scheduled**\n",
         "tech_auto_event_request": "[A] Scheduled reQuest for the {state} of **{name}** at **{date}**\n",
         "tech_auto_event_iv": "[A] Scheduled IV after the {state} of **{name}** at **{date}**\n",
@@ -45,11 +50,8 @@
         "tech_auto_event_iv_short": "[A] IV {state} of {name}",
         "tech_auto_event_filtered": "[A] Ignored reQuest for the {state} of **{name}** at **{date}**\n",
         "tech_auto_event_filtered_header": "**[AutoJob] Ignored**\n",
-        "user_auto_event_header": "",
-        "user_auto_event_request": "Quests scan for the {state} of the event **{name}** has been scheduled at **{date}**. ",
-        "user_auto_event_iv": "IV scan will be back at **{date}**\n",
-        "user_auto_event_start": "beginning",
-        "user_auto_event_end": "end"
+        "tech_auto_event_start": "beginning",
+        "tech_auto_event_end": "end"
     },
     "auto_event": {
         "enabled": false,

@@ -410,6 +410,9 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
             ),
         }
         user_output_message += config.message.user_auto_event_request.format(**message_data)
+        message_data["state"] = (
+            config.message.tech_auto_event_start if event["beginning"] else config.message.tech_auto_event_end
+        )
         tech_output_message += config.message.tech_auto_event_request.format(**message_data)
 
         scheduler.add_job(
@@ -452,7 +455,7 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
             "date": quest_run_date.format(config.locale.datetime_format),
             "name": event["name"],
             "state": (
-                config.message.user_auto_event_start if event["beginning"] else config.message.user_auto_event_end
+                config.message.tech_auto_event_start if event["beginning"] else config.message.tech_auto_event_end
             ),
         }
         tech_output_filtered_message += config.message.tech_auto_event_filtered.format(**message_data)
