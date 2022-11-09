@@ -383,7 +383,7 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
     filtered_events = [
         event
         for event in filtered_events
-        if event["date"] not in (past_event_dates["filtered"] + past_event_dates["main"])
+        if event["date"] not in past_event_dates["filtered"].union(past_event_dates["main"])
         and (event["beginning"] or not event["beginning"] and event["date"] not in beginning_dates_filtered)
     ]
 
