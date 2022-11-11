@@ -8,6 +8,7 @@ from dateutil import tz
 from discord import Client
 from discord_slash import ComponentContext
 from discord_slash.utils import manage_components
+from sentry_sdk import capture_exception
 from timeit import default_timer as timer
 from typing import Set, Text, Dict, List, Tuple, Union, cast, Any, Callable, TypeVar
 
@@ -139,6 +140,7 @@ async def get_status_message() -> Text:
     try:
         status = await RDMGetApi.get_status()
     except httpx.RequestError as e:
+        capture_exception(e)
         message = f"Status fetch failed!\nError: {type(e).__name__}: {e}"
     else:
         message = (
@@ -248,7 +250,8 @@ async def handle_assignment_group(assignments_groups: Union[Set, List[Text]], ac
         ra = RDMSetApi()
         for assignment_group in assignments_groups:
             assert await ra.assignment_group(name=assignment_group, re_quest=action == "request")
-    except (AssertionError, httpx.RequestError):
+    except (AssertionError, httpx.RequestError) as e:
+        capture_exception(e)
         status = False
     finally:
         return status
@@ -258,7 +261,8 @@ async def handle_clean() -> bool:
     status = True
     try:
         assert await RDMSetApi.clear_all_quests()
-    except (AssertionError, httpx.RequestError):
+    except (AssertionError, httpx.RequestError) as e:
+        capture_exception(e)
         status = False
     finally:
         return status

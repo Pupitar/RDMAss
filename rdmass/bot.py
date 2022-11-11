@@ -5,6 +5,7 @@ from apscheduler.jobstores.base import JobLookupError
 from discord_slash import SlashCommand, ComponentContext
 from discord_slash.model import ButtonStyle, SlashMessage
 from discord_slash.utils import manage_components
+from sentry_sdk import capture_exception
 from typing import Optional, List, Text
 
 from rdmass.config import permissions, config, scheduler
@@ -185,6 +186,7 @@ async def rdm_reload(ctx: ComponentContext) -> None:
     try:
         status = await RDMSetApi.reload_instances()
     except httpx.RequestError as e:
+        capture_exception(e)
         message = f"Instances reload failed!\nError: {e}"
     else:
         message = f"Instances {'reloaded!' if status else 'reload failed!'}"
@@ -221,6 +223,7 @@ async def rdm_clear(ctx: ComponentContext) -> None:
         try:
             status = await RDMSetApi.clear_all_quests()
         except httpx.RequestError as e:
+            capture_exception(e)
             message = f"Quests cleanup failed!\nError: {type(e).__name__}: {e}"
         else:
             message = f"Quests {'cleaned!' if status else 'cleanup failed!'}"

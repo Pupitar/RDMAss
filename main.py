@@ -1,7 +1,6 @@
 from rdmass.bot import client
 from rdmass.config import config
 
-
 if __name__ == "__main__":
     if config.sentry.dns:
         import sentry_sdk
