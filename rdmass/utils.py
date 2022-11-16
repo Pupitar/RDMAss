@@ -433,10 +433,11 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
         )
 
         message_data["date"] = iv_run_date.format(config.locale.datetime_format)
-        user_output_message += config.message.user_auto_event_iv.format(**message_data)
-        tech_output_message += config.message.tech_auto_event_iv.format(**message_data)
 
         if config.auto_event.iv_instances:
+            user_output_message += config.message.user_auto_event_iv.format(**message_data)
+            tech_output_message += config.message.tech_auto_event_iv.format(**message_data)
+
             scheduler.add_job(
                 id=f"{event['date']}-2",
                 func=scheduler_target,
