@@ -288,7 +288,7 @@ def scheduler_migration() -> None:
 
 async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
     # sanity checks
-    if not (config.auto_event.enabled and config.auto_event.quest_instances and config.auto_event.iv_instances):
+    if not config.auto_event.enabled and config.auto_event.quest_instances:
         return
 
     # check if file exists
@@ -436,18 +436,19 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
         user_output_message += config.message.user_auto_event_iv.format(**message_data)
         tech_output_message += config.message.tech_auto_event_iv.format(**message_data)
 
-        scheduler.add_job(
-            id=f"{event['date']}-2",
-            func=scheduler_target,
-            trigger="date",
-            run_date=iv_run_date.to("UTC").datetime,
-            name=config.message.tech_auto_event_iv_short.format(**message_data),
-            args=[
-                config.auto_event.iv_instances,
-                "start",
-            ],
-            replace_existing=True,
-        )
+        if config.auto_event.iv_instances:
+            scheduler.add_job(
+                id=f"{event['date']}-2",
+                func=scheduler_target,
+                trigger="date",
+                run_date=iv_run_date.to("UTC").datetime,
+                name=config.message.tech_auto_event_iv_short.format(**message_data),
+                args=[
+                    config.auto_event.iv_instances,
+                    "start",
+                ],
+                replace_existing=True,
+            )
 
         log.debug(f"handle_events - added event {event['name']} at {event['date']} to scheduler")
         past_event_dates["main"].add(event["date"])
