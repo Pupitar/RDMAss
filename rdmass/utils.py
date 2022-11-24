@@ -383,8 +383,8 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
     events = [
         event
         for event in events
-        if event.date not in past_event_dates["main"] and
-        (event.beginning or not event.beginning and event.date not in beginning_dates)
+        if event.date not in past_event_dates["main"]
+        and (event.beginning or not event.beginning and event.date not in beginning_dates)
     ]
 
     filtered_events = [
@@ -411,11 +411,9 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
         message_data = {
             "date": event.date_arrow.format(config.locale.datetime_format),
             "name": event.name,
-            "has_quests": ':regional_indicator_q:' if event.has_quests else '',
-            "accepted_hours": ':regional_indicator_h:' if event.accepted_hours else '',
-            "state": (
-                config.message.user_auto_event_start if event.beginning else config.message.user_auto_event_end
-            ),
+            "has_quests": ":regional_indicator_q:" if event.has_quests else "",
+            "accepted_hours": ":regional_indicator_h:" if event.accepted_hours else "",
+            "state": (config.message.user_auto_event_start if event.beginning else config.message.user_auto_event_end),
         }
         user_output_message += config.message.user_auto_event_request.format(**message_data)
         message_data["state"] = (
@@ -462,11 +460,9 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
         message_data = {
             "date": event.date_arrow.format(config.locale.datetime_format),
             "name": event.name,
-            "has_quests": ':regional_indicator_q:' if event.has_quests else '',
-            "accepted_hours": ':regional_indicator_h:' if event.accepted_hours else '',
-            "state": (
-                config.message.tech_auto_event_start if event.beginning else config.message.tech_auto_event_end
-            ),
+            "has_quests": ":regional_indicator_q:" if event.has_quests else "",
+            "accepted_hours": ":regional_indicator_h:" if event.accepted_hours else "",
+            "state": (config.message.tech_auto_event_start if event.beginning else config.message.tech_auto_event_end),
         }
         tech_output_filtered_message += config.message.tech_auto_event_filtered.format(**message_data)
         past_event_dates["filtered"].add(event.date)
