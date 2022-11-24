@@ -10,7 +10,8 @@ from discord_slash import ComponentContext
 from discord_slash.utils import manage_components
 from sentry_sdk import capture_exception
 from timeit import default_timer as timer
-from typing import Set, Text, Dict, List, Tuple, Union, cast, Any, Callable, TypeVar
+from typing import Set, Text, Dict, List, Tuple, Union, cast, Any, Callable, TypeVar, Optional
+from dataclasses import dataclass
 
 from rdmass.config import config, logging, scheduler, past_events_path
 from rdmass.rdm import RDMGetApi, RDMSetApi
@@ -18,6 +19,17 @@ from rdmass.rdm import RDMGetApi, RDMSetApi
 log = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
+
+
+@dataclass
+class Event:
+    name: str
+    type: str
+    has_quests: bool
+    accepted_hours: bool = False
+    accepted_diff: bool = False
+    date: Optional[str] = None
+    date_arrow: Optional[arrow.arrow.Arrow] = None
 
 
 def create_action_list(
@@ -291,7 +303,7 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
     if not config.auto_event.enabled and config.auto_event.quest_instances:
         return
 
-    # check if file exists
+    # check if past_events file exists
     past_events_path_exists = await aiofiles.os.path.exists(past_events_path)
     if not past_events_path_exists:
         log.debug("handle_events - creating past_events file")
@@ -329,50 +341,41 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
     beginning_dates_filtered = set()
     now = arrow.now(tz=config.locale.timezone)
 
-    for event in raw_events:
-        # skip events without quest changes
-        if not event["has_quests"]:
+    # iterate all events in source and created 2 events (starting and ending) for each event
+    for event_row in raw_events:
+        # include only selected event types
+        if event_row["type"] not in config.auto_event.types:
             continue
 
-        # include only selected event types
-        if event["type"] in config.auto_event.types:
-            if event["start"]:
-                start_date = arrow.get(event["start"], tzinfo=config.locale.timezone)
-                event_data = {
-                    "beginning": True,
-                    "name": event["name"],
-                    "type": event["type"],
-                    "date": event["start"],
-                    "date_obj": start_date,
-                }
+        # process both start and the end of the event
+        for event_type in ("start", "end"):
+            event = Event(
+                name=event_row["name"],
+                type=event_row["type"],
+                has_quests=event_row["has_quests"],
+            )
 
-                if (
-                    config.auto_event.time_range[0] <= start_date.hour <= config.auto_event.time_range[1]
-                    and (start_date - now).total_seconds() > config.auto_event.skip_diff
-                ):
-                    beginning_dates.add(event["start"])
-                    events.append(event_data)
-                else:
-                    beginning_dates_filtered.add(event["start"])
-                    filtered_events.append(event_data)
+            if not event_row[event_type]:
+                continue
 
-            if event["end"]:
-                end_date = arrow.get(event["end"], tzinfo=config.locale.timezone)
-                event_data = {
-                    "beginning": False,
-                    "name": event["name"],
-                    "type": event["type"],
-                    "date": event["end"],
-                    "date_obj": end_date,
-                }
+            event.beginning = event_type == "start"
+            event.date = event_row["start"] if event.beginning else event_row["end"]
+            event.date_arrow = arrow.get(event.date, tzinfo=config.locale.timezone)
 
-                if (
-                    config.auto_event.time_range[0] <= end_date.hour <= config.auto_event.time_range[1]
-                    and (end_date - now).total_seconds() > config.auto_event.skip_diff
-                ):
-                    events.append(event_data)
-                else:
-                    filtered_events.append(event_data)
+            if config.auto_event.time_range[0] <= event.date_arrow.hour <= config.auto_event.time_range[1]:
+                event.accepted_hours = True
+
+            if (event.date_arrow - now).total_seconds() > config.auto_event.skip_diff:
+                event.accepted_diff = True
+
+            if event.has_quests and event.accepted_hours and event.accepted_diff:
+                if event.beginning:
+                    beginning_dates.add(event.date)
+                events.append(event)
+            else:
+                if event.beginning:
+                    beginning_dates_filtered.add(event.date)
+                filtered_events.append(event)
 
     log.debug(f"handle_events - got {len(events)} events before cleanup")
 
@@ -380,15 +383,15 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
     events = [
         event
         for event in events
-        if event["date"] not in past_event_dates["main"]
-        and (event["beginning"] or not event["beginning"] and event["date"] not in beginning_dates)
+        if event.date not in past_event_dates["main"] and
+        (event.beginning or not event.beginning and event.date not in beginning_dates)
     ]
 
     filtered_events = [
         event
         for event in filtered_events
-        if event["date"] not in past_event_dates["filtered"].union(past_event_dates["main"])
-        and (event["beginning"] or not event["beginning"] and event["date"] not in beginning_dates_filtered)
+        if event.date not in past_event_dates["filtered"].union(past_event_dates["main"])
+        and (event.beginning or not event.beginning and event.date not in beginning_dates_filtered)
     ]
 
     if not events and not filtered_events:
@@ -403,27 +406,28 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
     tech_output_filtered_message = config.message.tech_auto_event_filtered_header
 
     for event in events:
-        quest_run_date = event["date_obj"]
-        iv_run_date = quest_run_date + timedelta(minutes=config.auto_event.execution_time)
+        iv_run_date = event.date_arrow + timedelta(minutes=config.auto_event.execution_time)
 
         message_data = {
-            "date": quest_run_date.format(config.locale.datetime_format),
-            "name": event["name"],
+            "date": event.date_arrow.format(config.locale.datetime_format),
+            "name": event.name,
+            "has_quests": ':regional_indicator_q:' if event.has_quests else '',
+            "accepted_hours": ':regional_indicator_h:' if event.accepted_hours else '',
             "state": (
-                config.message.user_auto_event_start if event["beginning"] else config.message.user_auto_event_end
+                config.message.user_auto_event_start if event.beginning else config.message.user_auto_event_end
             ),
         }
         user_output_message += config.message.user_auto_event_request.format(**message_data)
         message_data["state"] = (
-            config.message.tech_auto_event_start if event["beginning"] else config.message.tech_auto_event_end
+            config.message.tech_auto_event_start if event.beginning else config.message.tech_auto_event_end
         )
         tech_output_message += config.message.tech_auto_event_request.format(**message_data)
 
         scheduler.add_job(
-            id=f"{event['date']}-1",
+            id=f"{event.date}-1",
             func=scheduler_target,
             trigger="date",
-            run_date=quest_run_date.to("UTC").datetime,
+            run_date=event.date_arrow.to("UTC").datetime,
             name=config.message.tech_auto_event_request_short.format(**message_data),
             args=[
                 config.auto_event.quest_instances,
@@ -439,7 +443,7 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
             tech_output_message += config.message.tech_auto_event_iv.format(**message_data)
 
             scheduler.add_job(
-                id=f"{event['date']}-2",
+                id=f"{event.date}-2",
                 func=scheduler_target,
                 trigger="date",
                 run_date=iv_run_date.to("UTC").datetime,
@@ -451,21 +455,21 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
                 replace_existing=True,
             )
 
-        log.debug(f"handle_events - added event {event['name']} at {event['date']} to scheduler")
-        past_event_dates["main"].add(event["date"])
+        log.debug(f"handle_events - added event {event.name} at {event.date} to scheduler")
+        past_event_dates["main"].add(event.date)
 
     for event in filtered_events:
-        quest_run_date = event["date_obj"]
-
         message_data = {
-            "date": quest_run_date.format(config.locale.datetime_format),
-            "name": event["name"],
+            "date": event.date_arrow.format(config.locale.datetime_format),
+            "name": event.name,
+            "has_quests": ':regional_indicator_q:' if event.has_quests else '',
+            "accepted_hours": ':regional_indicator_h:' if event.accepted_hours else '',
             "state": (
-                config.message.tech_auto_event_start if event["beginning"] else config.message.tech_auto_event_end
+                config.message.tech_auto_event_start if event.beginning else config.message.tech_auto_event_end
             ),
         }
         tech_output_filtered_message += config.message.tech_auto_event_filtered.format(**message_data)
-        past_event_dates["filtered"].add(event["date"])
+        past_event_dates["filtered"].add(event.date)
 
     # save event dates
     async with aiofiles.open(past_events_path, mode="w") as f:
