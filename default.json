@@ -60,7 +60,7 @@
         "quest_instances": [],
         "iv_instances": [],
         "time_range": [9, 10],
-        "types": ["event", "season"],
+        "types": ["event"],
         "check_every": 15,
         "skip_diff": 7200,
         "http_timeout": 20
