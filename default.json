@@ -17,7 +17,8 @@
         "rdm": {
             "api_endpoint": "http://127.0.0.1:9000",
             "username": "rdm_root_user",
-            "password": "6d9fdb16ed509488eeef6af2f842a744"
+            "password": "6d9fdb16ed509488eeef6af2f842a744",
+            "http_timeout": 20
         }
     },
     "locale": {
@@ -61,7 +62,8 @@
         "time_range": [9, 10],
         "types": ["event", "season"],
         "check_every": 15,
-        "skip_diff": 7200
+        "skip_diff": 7200,
+        "http_timeout": 20
     },
     "resource": {
         "pogoinfo_events": "https://raw.githubusercontent.com/ccev/pogoinfo/v2/active/events.json"

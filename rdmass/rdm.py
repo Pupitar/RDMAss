@@ -7,7 +7,7 @@ log = logging.getLogger(__name__)
 
 
 async def client_get(url: Text, params: Dict) -> httpx.Response:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=config.instance.rdm.http_timeout) as client:
         response = await client.get(
             url,
             auth=(config.instance.rdm.username, config.instance.rdm.password),

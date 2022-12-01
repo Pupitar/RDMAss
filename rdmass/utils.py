@@ -328,7 +328,7 @@ async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
                 }
 
     # fetch events from remote
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=config.auto_event.http_timeout) as client:
         response = await client.get(config.resource.pogoinfo_events, headers={"user-agent": config.bot.user_agent})
         log.info(f"httpx GET pogoinfo events")
 
