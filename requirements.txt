@@ -6,5 +6,7 @@ APScheduler~=3.8.1
 SQLAlchemy~=1.4.29
 pydantic~=1.9.0
 arrow~=1.2.1
-sentry_sdk~=1.5.2
+sentry_sdk~=1.10.1
 discord.py~=1.7.3
+aiofiles==22.1.0
+simplejson==3.17.6

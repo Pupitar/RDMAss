@@ -1,5 +1,3 @@
-from typing import Optional, List, Text
-
 import arrow
 import discord
 import httpx
@@ -7,6 +5,8 @@ from apscheduler.jobstores.base import JobLookupError
 from discord_slash import SlashCommand, ComponentContext
 from discord_slash.model import ButtonStyle, SlashMessage
 from discord_slash.utils import manage_components
+from sentry_sdk import capture_exception
+from typing import Optional, List, Text
 
 from rdmass.config import permissions, config, scheduler
 from rdmass.rdm import RDMSetApi, RDMGetApi
@@ -17,6 +17,7 @@ from rdmass.utils import (
     handle_assignment_group,
     scheduler_migration,
     handle_clean,
+    handle_auto_events,
 )
 
 client = discord.Client(intents=discord.Intents.all())
@@ -34,6 +35,21 @@ async def on_ready() -> None:
     if not scheduler.running:
         scheduler.start()
         scheduler_migration()
+
+        if config.auto_event.enabled:
+            if config.auto_event.check_every < 1 or config.auto_event.check_every > 60:
+                return log.error("handle_events failed - set check_every to value between 1, 60")
+
+            await sched_handle_events()
+            scheduler.add_job(
+                id="handle_events",
+                name="events_cron",
+                func=sched_handle_events,
+                trigger="cron",
+                minute=f"*/{config.auto_event.check_every}",
+                max_instances=1,
+                replace_existing=True,
+            )
 
 
 @client.event
@@ -83,6 +99,11 @@ async def sched_assignment_group(assignments_groups: List[Text], action: Text) -
 
 
 @client.event
+async def sched_handle_events() -> None:
+    return await handle_auto_events(client, sched_assignment_group)
+
+
+@client.event
 async def sched_clean() -> None:
     success = await handle_clean()
 
@@ -116,9 +137,10 @@ async def rdm_jobs(ctx: ComponentContext) -> Optional[SlashMessage]:
             "value": job.id,
             "description": arrow.get(job.next_run_time)
             .to(config.locale.timezone)
-            .format(f"{config.locale.date_format} {config.locale.time_format}"),
+            .format(f"{config.locale.datetime_format}"),
         }
         for job in jobs
+        if job.id != "handle_events"
     ]
 
     if not jobs:
@@ -164,6 +186,7 @@ async def rdm_reload(ctx: ComponentContext) -> None:
     try:
         status = await RDMSetApi.reload_instances()
     except httpx.RequestError as e:
+        capture_exception(e)
         message = f"Instances reload failed!\nError: {e}"
     else:
         message = f"Instances {'reloaded!' if status else 'reload failed!'}"
@@ -200,6 +223,7 @@ async def rdm_clear(ctx: ComponentContext) -> None:
         try:
             status = await RDMSetApi.clear_all_quests()
         except httpx.RequestError as e:
+            capture_exception(e)
             message = f"Quests cleanup failed!\nError: {type(e).__name__}: {e}"
         else:
             message = f"Quests {'cleaned!' if status else 'cleanup failed!'}"
@@ -216,7 +240,7 @@ async def rdm_clear(ctx: ComponentContext) -> None:
             name=scheduler_name,
         )
 
-        dt_format = f"{config.locale.date_format} {config.locale.time_format}"
+        dt_format = f"{config.locale.datetime_format}"
         await hours_ctx.edit_origin(
             content=f"New job **{scheduler_name}** added. Will be fired at **{arrow_dt.format(dt_format)}**",
             components=None,
@@ -334,7 +358,7 @@ async def rdm_assignment_group(ctx: ComponentContext) -> Optional[SlashMessage]:
             name=scheduler_name,
         )
 
-        dt_format = f"{config.locale.date_format} {config.locale.time_format}"
+        dt_format = f"{config.locale.datetime_format}"
         await hours_ctx.edit_origin(
             content=f"New job **{scheduler_name}** added. Will be fired at **{arrow_dt.format(dt_format)}**",
             components=None,

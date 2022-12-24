@@ -1,19 +1,35 @@
-from timeit import default_timer as timer
-
+import aiofiles
+import aiofiles.os
 import arrow
 import httpx
+import simplejson as json
 from datetime import timedelta
+from dateutil import tz
 from discord import Client
 from discord_slash import ComponentContext
 from discord_slash.utils import manage_components
-from typing import Set, Text, Dict, List, Tuple, Union, cast, Any, Callable, TypeVar
+from sentry_sdk import capture_exception
+from timeit import default_timer as timer
+from typing import Set, Text, Dict, List, Tuple, Union, cast, Any, Callable, TypeVar, Optional
+from dataclasses import dataclass
 
-from rdmass.config import config, logging, scheduler
+from rdmass.config import config, logging, scheduler, past_events_path
 from rdmass.rdm import RDMGetApi, RDMSetApi
 
 log = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
+
+
+@dataclass
+class Event:
+    name: str
+    type: str
+    has_quests: bool
+    accepted_hours: bool = False
+    accepted_diff: bool = False
+    date: Optional[str] = None
+    date_arrow: Optional[arrow.arrow.Arrow] = None
 
 
 def create_action_list(
@@ -136,6 +152,7 @@ async def get_status_message() -> Text:
     try:
         status = await RDMGetApi.get_status()
     except httpx.RequestError as e:
+        capture_exception(e)
         message = f"Status fetch failed!\nError: {type(e).__name__}: {e}"
     else:
         message = (
@@ -187,7 +204,7 @@ async def handle_dt_picker(client: Client, ctx: ComponentContext) -> Tuple[Compo
     )
     hours = [
         {
-            "label": f"{dt.format(config.locale.date_format)} {dt.format(config.locale.time_format)}",
+            "label": f"{dt.format(config.locale.datetime_format)}",
             "value": f"{dt.year},{dt.month},{dt.day},{dt.hour}",
         }
         for dt in hours_list
@@ -245,7 +262,8 @@ async def handle_assignment_group(assignments_groups: Union[Set, List[Text]], ac
         ra = RDMSetApi()
         for assignment_group in assignments_groups:
             assert await ra.assignment_group(name=assignment_group, re_quest=action == "request")
-    except (AssertionError, httpx.RequestError):
+    except (AssertionError, httpx.RequestError) as e:
+        capture_exception(e)
         status = False
     finally:
         return status
@@ -255,7 +273,8 @@ async def handle_clean() -> bool:
     status = True
     try:
         assert await RDMSetApi.clear_all_quests()
-    except (AssertionError, httpx.RequestError):
+    except (AssertionError, httpx.RequestError) as e:
+        capture_exception(e)
         status = False
     finally:
         return status
@@ -277,3 +296,193 @@ def scheduler_migration() -> None:
     for job in scheduler.get_jobs():
         if len(job.args) > 2:
             scheduler.modify_job(job_id=job.id, args=job.args[:2])
+
+
+async def handle_auto_events(bot_client: Client, scheduler_target: Any) -> None:
+    # sanity checks
+    if not config.auto_event.enabled and config.auto_event.quest_instances:
+        return
+
+    # check if past_events file exists
+    past_events_path_exists = await aiofiles.os.path.exists(past_events_path)
+    if not past_events_path_exists:
+        log.debug("handle_events - creating past_events file")
+        past_event_dates = {"main": set(), "filtered": set()}
+        async with aiofiles.open(past_events_path, mode="w") as f:
+            await f.write(json.dumps(past_event_dates, iterable_as_array=True))
+
+    else:
+        log.debug("handle_events - loaded past_events file")
+        # load previously added job dates
+        async with aiofiles.open(past_events_path, mode="r") as f:
+            contents = await f.read()
+            past_event_dates = json.loads(contents)
+
+            # remove someday :^)
+            if isinstance(past_event_dates, list):
+                past_event_dates = {"main": set(past_event_dates), "filtered": set()}
+            else:
+                past_event_dates = {
+                    "main": set(past_event_dates["main"]),
+                    "filtered": set(past_event_dates["filtered"]),
+                }
+
+    # fetch events from remote
+    async with httpx.AsyncClient(timeout=config.auto_event.http_timeout) as client:
+        response = await client.get(config.resource.pogoinfo_events, headers={"user-agent": config.bot.user_agent})
+        log.info(f"httpx GET pogoinfo events")
+
+    raw_events = response.json()
+    log.debug("handle_events - fetched pogoinfo events")
+
+    events = []
+    filtered_events = []
+    beginning_dates = set()
+    beginning_dates_filtered = set()
+    now = arrow.now(tz=config.locale.timezone)
+
+    # iterate all events in source and created 2 events (starting and ending) for each event
+    for event_row in raw_events:
+        # include only selected event types
+        if event_row["type"] not in config.auto_event.types:
+            continue
+
+        # process both start and the end of the event
+        for event_type in ("start", "end"):
+            event = Event(
+                name=event_row["name"],
+                type=event_row["type"],
+                has_quests=event_row["has_quests"],
+            )
+
+            if not event_row[event_type]:
+                continue
+
+            event.beginning = event_type == "start"
+            event.date = event_row["start"] if event.beginning else event_row["end"]
+            event.date_arrow = arrow.get(event.date, tzinfo=config.locale.timezone)
+
+            if config.auto_event.time_range[0] <= event.date_arrow.hour <= config.auto_event.time_range[1]:
+                event.accepted_hours = True
+
+            if (event.date_arrow - now).total_seconds() > config.auto_event.skip_diff:
+                event.accepted_diff = True
+
+            if event.has_quests and event.accepted_hours and event.accepted_diff:
+                if event.beginning:
+                    beginning_dates.add(event.date)
+                events.append(event)
+            else:
+                if event.beginning:
+                    beginning_dates_filtered.add(event.date)
+                filtered_events.append(event)
+
+    log.debug(f"handle_events - got {len(events)} events before cleanup")
+
+    # use end events only when there's no beginning event with same date
+    events = [
+        event
+        for event in events
+        if event.date not in past_event_dates["main"]
+        and (event.beginning or not event.beginning and event.date not in beginning_dates)
+    ]
+
+    filtered_events = [
+        event
+        for event in filtered_events
+        if event.date not in past_event_dates["filtered"].union(past_event_dates["main"])
+        and (event.beginning or not event.beginning and event.date not in beginning_dates_filtered)
+    ]
+
+    if not events and not filtered_events:
+        log.debug(f"handle_events - no events to process")
+        return
+
+    log.debug(f"handle_events - got {len(events)} events and {len(filtered_events)} after cleanup")
+
+    # add events
+    tech_output_message = config.message.tech_auto_event_header
+    user_output_message = config.message.user_auto_event_header
+    tech_output_filtered_message = config.message.tech_auto_event_filtered_header
+
+    for event in events:
+        iv_run_date = event.date_arrow + timedelta(minutes=config.auto_event.execution_time)
+
+        message_data = {
+            "date": event.date_arrow.format(config.locale.datetime_format),
+            "name": event.name,
+            "has_quests": ":regional_indicator_q:" if event.has_quests else "",
+            "accepted_hours": ":regional_indicator_h:" if event.accepted_hours else "",
+            "state": (config.message.user_auto_event_start if event.beginning else config.message.user_auto_event_end),
+        }
+        user_output_message += config.message.user_auto_event_request.format(**message_data)
+        message_data["state"] = (
+            config.message.tech_auto_event_start if event.beginning else config.message.tech_auto_event_end
+        )
+        tech_output_message += config.message.tech_auto_event_request.format(**message_data)
+
+        scheduler.add_job(
+            id=f"{event.date}-1",
+            func=scheduler_target,
+            trigger="date",
+            run_date=event.date_arrow.to("UTC").datetime,
+            name=config.message.tech_auto_event_request_short.format(**message_data),
+            args=[
+                config.auto_event.quest_instances,
+                "request",
+            ],
+            replace_existing=True,
+        )
+
+        message_data["date"] = iv_run_date.format(config.locale.datetime_format)
+
+        if config.auto_event.iv_instances:
+            user_output_message += config.message.user_auto_event_iv.format(**message_data)
+            tech_output_message += config.message.tech_auto_event_iv.format(**message_data)
+
+            scheduler.add_job(
+                id=f"{event.date}-2",
+                func=scheduler_target,
+                trigger="date",
+                run_date=iv_run_date.to("UTC").datetime,
+                name=config.message.tech_auto_event_iv_short.format(**message_data),
+                args=[
+                    config.auto_event.iv_instances,
+                    "start",
+                ],
+                replace_existing=True,
+            )
+
+        log.debug(f"handle_events - added event {event.name} at {event.date} to scheduler")
+        past_event_dates["main"].add(event.date)
+
+    for event in filtered_events:
+        message_data = {
+            "date": event.date_arrow.format(config.locale.datetime_format),
+            "name": event.name,
+            "has_quests": ":regional_indicator_q:" if event.has_quests else "",
+            "accepted_hours": ":regional_indicator_h:" if event.accepted_hours else "",
+            "state": (config.message.tech_auto_event_start if event.beginning else config.message.tech_auto_event_end),
+        }
+        tech_output_filtered_message += config.message.tech_auto_event_filtered.format(**message_data)
+        past_event_dates["filtered"].add(event.date)
+
+    # save event dates
+    async with aiofiles.open(past_events_path, mode="w") as f:
+        log.debug(f"handle_events - saving past_events file")
+        await f.write(json.dumps(past_event_dates, iterable_as_array=True))
+
+    # handle tech messages
+    if config.instance.discord.tech_channel and tech_output_message:
+        tech_channel = await bot_client.fetch_channel(config.instance.discord.tech_channel)
+
+        if events:
+            await tech_channel.send(tech_output_message)
+        if filtered_events:
+            await tech_channel.send(tech_output_filtered_message)
+
+    # handle user messages
+    if config.instance.discord.user_channel and user_output_message and events:
+        user_channel = await bot_client.fetch_channel(config.instance.discord.user_channel)
+
+        await user_channel.send(user_output_message)

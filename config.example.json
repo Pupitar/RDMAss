@@ -18,8 +18,9 @@
         }
     },
     "locale": {
+        "datetime_format": "YYYY.MM.DD HH:mm",
         "date_format": "YYYY.MM.DD",
-        "time_format": "HH:mm:ss",
+        "time_format": "HH:mm",
         "timezone": "UTC"
     }
 }
