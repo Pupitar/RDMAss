@@ -4,6 +4,7 @@ A Python Discord bot creating an interaction with RDM API.
 ### Features
 - Assignment Groups (scheduled & instant)
 - Clear All Quests (scheduled & instant)
+- Auto reQuest Events (using remote pogoinfo)
 - RDM Status
 - Reload All Instances
 
@@ -55,6 +56,17 @@ Additonal options are available in `default.json`
         "date_format": "YYYY.MM.DD",                       // Date format
         "time_format": "HH:mm",                            // Time format
         "timezone": "UTC"                                  // Timezone (used for assignement scheduler)
+    },
+    "auto_event": {
+        "enabled": false,
+        "execution_time": 240,                             // time in minutes you want to run `iv_instances` after starting reQuest (in my case reQuest takes 4h so after 240 minutes script will auto run IV instances back)
+        "quest_instances": [],                             // list of quest assignment groups to run
+        "iv_instances": [],                                // optional list of iv assignment groups to run. If provided, those will run after provided `execution_time`.
+        "time_range": [9, 10],                             // only include events which start/end between those hours (including)
+        "types": ["event"],
+        "check_every": 15,
+        "skip_diff": 7200,                                 // skip events newly discovered on pogoinfo and starting in less than minutes
+        "http_timeout": 20
     }
 }
 ```
