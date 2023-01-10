@@ -59,7 +59,7 @@
         "execution_time": 240,
         "quest_instances": [],
         "iv_instances": [],
-        "time_range": [9, 10],
+        "time_range": [8, 10],
         "types": ["event"],
         "check_every": 15,
         "skip_diff": 7200,
